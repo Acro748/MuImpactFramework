@@ -358,25 +358,11 @@ namespace Mus {
 		}
 
 		ImpactDataManager_ idm_ = ImpactDataManager_(cause);
-		for (auto& condition : ConditionManager::GetSingleton().GetCondition(cause, ConditionManager::ConditionOption::Aggressor))
+		if (RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get()); target)
 		{
-			for (auto& ids : condition.ImpactDataSets)
+			for (const auto& condition : ConditionManager::GetSingleton().GetCondition(cause, target))
 			{
-				auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(ids.id, ids.pluginName));
-				if (impact)
-				{
-					idm_.Register(false, impact);
-					idm_.Register(true, impact);
-				}
-			}
-		}
-
-		RE::Actor* target = skyrim_cast<RE::Actor*>(evn->cause.get());
-		if (target)
-		{
-			for (auto& condition : ConditionManager::GetSingleton().GetCondition(target, ConditionManager::ConditionOption::Target))
-			{
-				for (auto& ids : condition.ImpactDataSets)
+				for (const auto& ids : condition.ImpactDataSets)
 				{
 					auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(ids.id, ids.pluginName));
 					if (impact)

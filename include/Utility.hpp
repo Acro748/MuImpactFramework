@@ -45,31 +45,33 @@ namespace Mus {
         return Directory;
     }
 
-    inline RE::TESForm* GetFormByID(RE::FormID id, std::string_view modname)
+    inline RE::TESForm* GetFormByID(RE::FormID id, std::string modname)
     {
-        RE::TESDataHandler* DataHandler = RE::TESDataHandler::GetSingleton();
-        if (!DataHandler)
-            return nullptr;
-
-        auto esp = DataHandler->LookupModByName(modname);
-        if (!esp)
-            return nullptr;
-
-        RE::FormID index = 0;
-
-        if (REL::Module::IsVR() || (!REL::Module::IsVR() && !esp->IsLight()))
+        if (modname != "")
         {
-            RE::FormID Compileindex = esp->GetCompileIndex();
-            index = (Compileindex << 24);
-        }
-        else
-        {
-            RE::FormID Compileindex = esp->GetSmallFileCompileIndex();
-            index = ((0xFE000 | Compileindex) << 24);
-        }
+            RE::TESDataHandler* DataHandler = RE::TESDataHandler::GetSingleton();
+            if (!DataHandler)
+                return nullptr;
 
-        id += index;
+            auto esp = DataHandler->LookupModByName(modname.c_str());
+            if (!esp)
+                return nullptr;
 
+            RE::FormID index = 0;
+
+            if (REL::Module::IsVR() || (!REL::Module::IsVR() && !esp->IsLight()))
+            {
+                RE::FormID Compileindex = esp->GetCompileIndex();
+                index = (Compileindex << 24);
+            }
+            else
+            {
+                RE::FormID Compileindex = esp->GetSmallFileCompileIndex();
+                index = ((0xFE000 | Compileindex) << 24);
+            }
+
+            id += index;
+        }
         RE::TESForm* result = RE::TESForm::LookupByID(id);
 
         return result ? result : nullptr;

@@ -64,9 +64,9 @@ namespace Mus {
 		struct ConditionItem {
 			bool NOT = false;
 			ConditionType type;
-			std::string pluginName;
-			RE::FormID id;
-			std::string arg;
+			std::string pluginName = "";
+			RE::FormID id = 0;
+			std::string arg = "";
 		};
 		typedef std::vector<ConditionItem> ConditionItemOr;
 
@@ -82,7 +82,7 @@ namespace Mus {
 
 		bool RegisterCondition(Condition condition, std::string presetPath);
 
-		const std::vector<Condition> GetCondition(RE::Actor* actor, std::uint8_t option);
+		const std::vector<Condition> GetCondition(RE::Actor* Aggressor, RE::Actor* Target);
 
 	private:
 		concurrency::concurrent_vector<Condition> ConditionList;
@@ -95,7 +95,7 @@ namespace Mus {
 			return (ConditionResult ^ NOT);
 		}
 
-		inline void Logging(RE::Actor* actor, std::uint8_t option, ConditionItem OR, bool isTrue) {
+		inline void Logging(RE::Actor* actor, std::uint8_t option, ConditionItem& OR, bool isTrue) {
 			std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
 			if (IsContainString(typestr, "EditorID"))
 			{
@@ -111,8 +111,8 @@ namespace Mus {
 			}
 			else
 			{
-				logger::debug("{} {:x} : {} Condition {}{}({}|{:x}) is {}", actor->GetName(), actor->formID,
-					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.id,
+				logger::debug("{} {:x} : {} Condition {}{}({}{}{:x}) is {}", actor->GetName(), actor->formID,
+					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.pluginName == "" ? "" : "|", OR.id,
 					isValidCondition(isTrue, OR.NOT) ? "True" : "False");
 			}
 		}

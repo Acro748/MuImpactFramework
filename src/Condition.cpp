@@ -11,129 +11,138 @@ namespace Mus {
 		}
 	}
 
-	const std::vector<ConditionManager::Condition> ConditionManager::GetCondition(RE::Actor* actor, std::uint8_t option)
+	const std::vector<ConditionManager::Condition> ConditionManager::GetCondition(RE::Actor* Aggressor, RE::Actor* Target)
 	{
-		logger::trace("{} {:x} : Checking Conditions", actor->GetName(), actor->formID);
+		logger::trace("Checking Conditions : Aggressor {} {:x} / Target {} {:x}", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
 		std::vector<Condition> found_condition;
 		for (auto& Condition : ConditionList)
 		{
-			logger::debug("{} {:x} : Checking Full Conditions {} on {}...", actor->GetName(), actor->formID, Condition.originalCondition[option], magic_enum::enum_name(ConditionOption(option)).data());
 			std::uint32_t trueCount = 0;
-			for (auto& AND : Condition.AND[option])
+			for (std::uint8_t option = 0; option < ConditionOption::OptionTotal; option++)
 			{
-				for (auto& OR : AND)
+				RE::Actor* actor = nullptr;
+				if (option == ConditionOption::Aggressor)
+					actor = Aggressor;
+				else if (option == ConditionOption::Target)
+					actor = Target;
+				if (!actor)
+					continue;
+				logger::debug("{} {:x} : Checking Full Conditions {} on {}...", actor->GetName(), actor->formID, Condition.originalCondition[option], magic_enum::enum_name(ConditionOption(option)).data());
+				for (auto& AND : Condition.AND[option])
 				{
-					bool isTrue = false;
-					switch (OR.type) {
-					case ConditionType::IsEquippedLeft:
-						isTrue = isEquipped(actor, true, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsEquippedLeftHasKeyword:
-						isTrue = isEquippedHasKeyword(actor, true, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsEquippedLeftHasKeywordEditorID:
-						isTrue = isEquippedHasKeywordEditorID(actor, true, OR.arg);
-						break;
-					case ConditionType::IsEquippedRight:
-						isTrue = isEquipped(actor, false, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsEquippedRightHasKeyword:
-						isTrue = isEquippedHasKeyword(actor, false, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsEquippedRightHasKeywordEditorID:
-						isTrue = isEquippedHasKeywordEditorID(actor, false, OR.arg);
-						break;
-					case ConditionType::IsEquippedPowerOrShout:
-						isTrue = isEquippedPowerOrShout(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsWorn:
-						isTrue = isWorn(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsWornHasKeyword:
-						isTrue = isWornHasKeyword(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsWornHasKeywordEditorID:
-						isTrue = isWornHasKeywordEditorID(actor, OR.arg);
-						break;
-					case ConditionType::IsInFaction:
-						isTrue = isInFaction(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::HasKeyword:
-						isTrue = hasKeyword(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::HasKeywordEditorID:
-						isTrue = hasKeywordEditorID(actor, OR.arg);
-						break;
-					case ConditionType::HasMagicEffect:
-						isTrue = hasMagicEffect(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::HasPerk:
-						isTrue = hasPerk(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::HasSpell:
-						isTrue = hasSpell(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsActorBase:
-						isTrue = isActorBase(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsActor:
-						isTrue = isActor(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsRace:
-						isTrue = isRace(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsClass:
-						isTrue = isClass(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsCombatStyle:
-						isTrue = isCombatStyle(actor, OR.pluginName, OR.id);
-						break;
-					case ConditionType::IsFemale:
-						isTrue = isFemale(actor);
-						break;
-					case ConditionType::IsChild:
-						isTrue = isChild(actor);
-						break;
-					case ConditionType::IsUnique:
-						isTrue = isUnique(actor);
-						break;
-					case ConditionType::IsSneaking:
-						isTrue = isSneaking(actor);
-						break;
-					case ConditionType::IsSprinting:
-						isTrue = isSprinting(actor);
-						break;
-					case ConditionType::IsInAir:
-						isTrue = isInAir(actor);
-						break;
-					case ConditionType::IsDead:
-						isTrue = isDead(actor);
-						break;
-					case ConditionType::IsLeftAttacking:
-						if (option == ConditionOption::Aggressor)
-							isTrue = isAttacking(actor, true);
-						break;
-					case ConditionType::IsRightAttacking:
-						if (option == ConditionOption::Aggressor)
-							isTrue = isAttacking(actor, false);
-						break;
-					case ConditionType::None:
-						isTrue = true;
-						break;
-					}
-					Logging(actor, option, OR, isTrue);
-
-					if (isValidCondition(isTrue, OR.NOT))
+					for (auto& OR : AND)
 					{
-						trueCount++;
-						break;
+						bool isTrue = false;
+						switch (OR.type) {
+						case ConditionType::IsEquippedLeft:
+							isTrue = isEquipped(actor, true, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsEquippedLeftHasKeyword:
+							isTrue = isEquippedHasKeyword(actor, true, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsEquippedLeftHasKeywordEditorID:
+							isTrue = isEquippedHasKeywordEditorID(actor, true, OR.arg);
+							break;
+						case ConditionType::IsEquippedRight:
+							isTrue = isEquipped(actor, false, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsEquippedRightHasKeyword:
+							isTrue = isEquippedHasKeyword(actor, false, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsEquippedRightHasKeywordEditorID:
+							isTrue = isEquippedHasKeywordEditorID(actor, false, OR.arg);
+							break;
+						case ConditionType::IsEquippedPowerOrShout:
+							isTrue = isEquippedPowerOrShout(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsWorn:
+							isTrue = isWorn(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsWornHasKeyword:
+							isTrue = isWornHasKeyword(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsWornHasKeywordEditorID:
+							isTrue = isWornHasKeywordEditorID(actor, OR.arg);
+							break;
+						case ConditionType::IsInFaction:
+							isTrue = isInFaction(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::HasKeyword:
+							isTrue = hasKeyword(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::HasKeywordEditorID:
+							isTrue = hasKeywordEditorID(actor, OR.arg);
+							break;
+						case ConditionType::HasMagicEffect:
+							isTrue = hasMagicEffect(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::HasPerk:
+							isTrue = hasPerk(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::HasSpell:
+							isTrue = hasSpell(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsActorBase:
+							isTrue = isActorBase(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsActor:
+							isTrue = isActor(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsRace:
+							isTrue = isRace(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsClass:
+							isTrue = isClass(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsCombatStyle:
+							isTrue = isCombatStyle(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsFemale:
+							isTrue = isFemale(actor);
+							break;
+						case ConditionType::IsChild:
+							isTrue = isChild(actor);
+							break;
+						case ConditionType::IsUnique:
+							isTrue = isUnique(actor);
+							break;
+						case ConditionType::IsSneaking:
+							isTrue = isSneaking(actor);
+							break;
+						case ConditionType::IsSprinting:
+							isTrue = isSprinting(actor);
+							break;
+						case ConditionType::IsInAir:
+							isTrue = isInAir(actor);
+							break;
+						case ConditionType::IsDead:
+							isTrue = isDead(actor);
+							break;
+						case ConditionType::IsLeftAttacking:
+							if (option == ConditionOption::Aggressor)
+								isTrue = isAttacking(actor, true);
+							break;
+						case ConditionType::IsRightAttacking:
+							if (option == ConditionOption::Aggressor)
+								isTrue = isAttacking(actor, false);
+							break;
+						case ConditionType::None:
+							isTrue = true;
+							break;
+						}
+						Logging(actor, option, OR, isTrue);
+
+						if (isValidCondition(isTrue, OR.NOT))
+						{
+							trueCount++;
+							break;
+						}
 					}
 				}
 			}
-
-			if (trueCount == Condition.AND[option].size())
+			if (trueCount == (Condition.AND[ConditionOption::Aggressor].size() + Condition.AND[ConditionOption::Target].size()))
 			{
-				logger::debug("{} {:x} : Found Condition for {} option", actor->GetName(), actor->formID, magic_enum::enum_name(ConditionOption(option)).data());
+				logger::debug("Found Condition on Aggressor {} {:x} / Target {} {:x} ", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
 				found_condition.emplace_back(Condition);
 			}
 		}
