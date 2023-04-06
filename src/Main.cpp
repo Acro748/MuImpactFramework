@@ -63,7 +63,7 @@ namespace {
      */
     void AllSave(SKSE::SerializationInterface* serde)
     {
-
+        ImpactDataManager::Save(serde);
     }
 
     void AllLoad(SKSE::SerializationInterface* serde)
@@ -72,7 +72,7 @@ namespace {
         std::uint32_t size;
         std::uint32_t version;
         while (serde->GetNextRecordInfo(type, version, size)) {
-
+            ImpactDataManager::Load(serde, type);
         }
     }
 
@@ -80,7 +80,7 @@ namespace {
     {
         log::info("Initializing cosave serialization...");
         auto* serde = GetSerializationInterface();
-        serde->SetUniqueID(_byteswap_ulong('MUJF'));
+        serde->SetUniqueID(_byteswap_ulong('MUIF'));
         serde->SetSaveCallback(AllSave);
         serde->SetLoadCallback(AllLoad);
     }

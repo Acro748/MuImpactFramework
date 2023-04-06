@@ -230,6 +230,85 @@ namespace Mus {
 		}
 	}
 
+	void ImpactDataManager::Save(SKSE::SerializationInterface* serde)
+	{
+		if (!serde->OpenRecord(GetSingleton().ImpactDataManagerRecord, 0)) {
+			logger::error("Unable to open record to write cosave data");
+			return;
+		}
+		logger::info("Saving on cosave...");
+		auto dataSize = GetSingleton().actorImpactData.size();
+		serde->WriteRecordData(&dataSize, sizeof(dataSize));
+		for (auto& actorMap : GetSingleton().actorImpactData) {
+			auto actorid = actorMap.first;
+			serde->WriteRecordData(&actorid, sizeof(actorid));
+			auto datasetL = actorMap.second.GetImpactDataSet(true);
+			auto datasetSizeL = datasetL.size();
+			serde->WriteRecordData(&datasetSizeL, sizeof(datasetSizeL));
+			for (auto& data : datasetL) {
+				auto dataid = data->formID;
+				serde->WriteRecordData(&dataid, sizeof(dataid));
+			}
+			auto datasetR = actorMap.second.GetImpactDataSet(false);
+			auto datasetSizeR = datasetR.size();
+			serde->WriteRecordData(&datasetSizeR, sizeof(datasetSizeR));
+			for (auto& data : datasetR) {
+				auto dataid = data->formID;
+				serde->WriteRecordData(&dataid, sizeof(dataid));
+			}
+		}
+	}
+	void ImpactDataManager::Load(SKSE::SerializationInterface* serde, std::uint32_t type)
+	{
+		GetSingleton().ClearActorList();
+		if (type == GetSingleton().ImpactDataManagerRecord) {
+			logger::info("Loding on cosave ImpactDataManagerRecord...");
+			std::size_t mapSize;
+			serde->ReadRecordData(&mapSize, sizeof(mapSize));
+			for (; mapSize > 0; --mapSize) {
+				RE::FormID ActorID;
+				serde->ReadRecordData(&ActorID, sizeof(ActorID));
+				RE::FormID newActorID;
+				RE::Actor* actor = nullptr;
+				if (!serde->ResolveFormID(ActorID, newActorID)) {
+					logger::warn("Actor ID {:X} could not be found after loading the save.", ActorID);
+				}
+				else
+					actor = skyrim_cast<RE::Actor*>(RE::TESForm::LookupByID(newActorID));
+				std::size_t datasetLSize;
+				serde->ReadRecordData(&datasetLSize, sizeof(datasetLSize));
+				for (; datasetLSize > 0; --datasetLSize) {
+					RE::FormID ImpactDataSetID;
+					serde->ReadRecordData(&ImpactDataSetID, sizeof(ImpactDataSetID));
+					RE::FormID newImpactDataSetID;
+					RE::BGSImpactDataSet* ImpactDataSet = nullptr;
+					if (!serde->ResolveFormID(ImpactDataSetID, newImpactDataSetID)) {
+						logger::warn("ImpactDataSet ID {:X} could not be found after loading the save.", ImpactDataSetID);
+					}
+					else
+						ImpactDataSet = skyrim_cast<RE::BGSImpactDataSet*>(RE::TESForm::LookupByID(newImpactDataSetID));
+					if (actor && ImpactDataSet)
+						GetSingleton().AddImpactDataSet(actor, true, ImpactDataSet);
+				}
+				std::size_t datasetRSize;
+				serde->ReadRecordData(&datasetRSize, sizeof(datasetRSize));
+				for (; datasetRSize > 0; --datasetRSize) {
+					RE::FormID ImpactDataSetID;
+					serde->ReadRecordData(&ImpactDataSetID, sizeof(ImpactDataSetID));
+					RE::FormID newImpactDataSetID;
+					RE::BGSImpactDataSet* ImpactDataSet = nullptr;
+					if (!serde->ResolveFormID(ImpactDataSetID, newImpactDataSetID)) {
+						logger::warn("ImpactDataSet ID {:X} could not be found after loading the save.", ImpactDataSetID);
+					}
+					else
+						ImpactDataSet = skyrim_cast<RE::BGSImpactDataSet*>(RE::TESForm::LookupByID(newImpactDataSetID));
+					if (actor && ImpactDataSet)
+						GetSingleton().AddImpactDataSet(actor, false, ImpactDataSet);
+				}
+			}
+		}
+	}
+
 	void ImpactDataManager::AddImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData)
 	{
 		if (actor && impactData)

@@ -52,6 +52,10 @@ namespace Mus {
 
 		void ProcessHitEvent(const RE::TESHitEvent* evn);
 		inline bool IsVaild() { return (ImpactDataSet[0].size() + ImpactDataSet[1].size()); };
+
+		const std::vector<RE::BGSImpactDataSet*> GetImpactDataSet(bool LeftHand) {
+			return ImpactDataSet[LeftHand];
+		};
 	private:
 		std::vector<RE::BGSImpactDataSet*> ImpactDataSet[2];
 
@@ -73,12 +77,19 @@ namespace Mus {
 			return instance;
 		};
 
+		const std::uint32_t ImpactDataManagerRecord = _byteswap_ulong('IDMR');
+		static void Save(SKSE::SerializationInterface* serde);
+		static void Load(SKSE::SerializationInterface* serde, std::uint32_t type);
+
 		void RegisterEvent();
 
 		void AddImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData);
 		void RemoveImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData);
 		void RemoveImpactDataSet(RE::Actor* actor, bool LeftHand);
 
+		inline void ClearActorList() {
+			actorImpactData.clear();
+		}
 	protected:
 		EventResult ProcessEvent(const RE::TESLoadGameEvent* evn, RE::BSTEventSource<RE::TESLoadGameEvent>*);
 		EventResult ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>*);

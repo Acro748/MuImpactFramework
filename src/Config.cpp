@@ -22,7 +22,7 @@ namespace Mus {
 
         if (!file.is_open())
         {
-            logger::critical("Unable to ImpactDataSwapper.ini file.");
+            logger::critical("Unable to {}.ini file.", SKSE::PluginDeclaration::GetSingleton()->GetName().data());
             return false;
         }
 
