@@ -25,6 +25,9 @@ namespace Mus {
         [[nodiscard]] inline bool GetInstanceMode() const noexcept {
             return InstanceMode;
         }
+        [[nodiscard]] inline std::uint8_t GetNodeDiscoveryMode() const noexcept {
+            return NodeDiscoveryMode;
+        }
         
     private:
         //Debug
@@ -34,6 +37,7 @@ namespace Mus {
         //General
         std::uint8_t ImpactMode = 0; //0 = papyrus, 1 = instance
         bool InstanceMode = false; //0 = no instance, 1 = instance
+        std::uint8_t NodeDiscoveryMode = 0; //0 = simple, 1 = realistic
 
     public:
         // trim from start (in place)

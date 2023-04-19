@@ -11,11 +11,11 @@ namespace Mus {
 		}
 	}
 
-	const std::vector<ConditionManager::Condition> ConditionManager::GetCondition(RE::Actor* Aggressor, RE::Actor* Target)
+	const concurrency::concurrent_vector<ConditionManager::Condition> ConditionManager::GetCondition(RE::Actor* Aggressor, RE::Actor* Target)
 	{
 		logger::trace("Checking Conditions : Aggressor {} {:x} / Target {} {:x}", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
-		std::vector<Condition> found_condition;
-		for (auto& Condition : ConditionList)
+		concurrency::concurrent_vector<Condition> found_condition;
+		concurrency::parallel_for_each(ConditionList.begin(), ConditionList.end(), [&](auto& Condition)
 		{
 			std::uint32_t trueCount = 0;
 			for (std::uint8_t option = 0; option < ConditionOption::OptionTotal; option++)
@@ -143,9 +143,9 @@ namespace Mus {
 			if (trueCount == (Condition.AND[ConditionOption::Aggressor].size() + Condition.AND[ConditionOption::Target].size()))
 			{
 				logger::debug("Found Condition on Aggressor {} {:x} / Target {} {:x} ", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
-				found_condition.emplace_back(Condition);
+				found_condition.push_back(Condition);
 			}
-		}
+		});
 
 		return found_condition;
 	}

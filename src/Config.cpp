@@ -64,6 +64,10 @@ namespace Mus {
                 {
                     InstanceMode = GetConfigSettingsBoolValue(variableValue);
                 }
+                else if (variableName == "NodeDiscoveryMode")
+                {
+                    NodeDiscoveryMode = GetConfigSettingsIntValue(variableValue);
+                }
             }
         }
         logger::info("Config loaded done");
@@ -133,6 +137,30 @@ namespace Mus {
                                         else
                                             continue;
                                         condition.ImpactDataSets.emplace_back(pluginInfo);
+                                    }
+                                }
+                                else if (variableName == "Spell")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        ConditionManager::PluginsInfo pluginInfo;
+                                        auto plugins = split(value, "|");
+                                        if (plugins.size() == 1)
+                                        {
+                                            pluginInfo.id = getHex(plugins.at(0));
+                                        }
+                                        else if (plugins.size() == 2)
+                                        {
+                                            pluginInfo.pluginName = plugins.at(0);
+                                            pluginInfo.id = getHex(plugins.at(1));
+                                        }
+                                        else
+                                            continue;
+                                        condition.SpellItems.emplace_back(pluginInfo);
                                     }
                                 }
                                 else if (variableName == "Aggressor")

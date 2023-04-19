@@ -136,6 +136,6 @@ namespace util {
 #include "nifUtil.h"
 #include "Condition.h"
 #include "Config.h"
-#include "ImpactDataManager.h"
+#include "ImpactManager.h"
 #include "PapyrusScripts.h"
 

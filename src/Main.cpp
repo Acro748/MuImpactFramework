@@ -63,7 +63,7 @@ namespace {
      */
     void AllSave(SKSE::SerializationInterface* serde)
     {
-        ImpactDataManager::Save(serde);
+        ImpactManager::Save(serde);
     }
 
     void AllLoad(SKSE::SerializationInterface* serde)
@@ -72,7 +72,7 @@ namespace {
         std::uint32_t size;
         std::uint32_t version;
         while (serde->GetNextRecordInfo(type, version, size)) {
-            ImpactDataManager::Load(serde, type);
+            ImpactManager::Load(serde, type);
         }
     }
 
@@ -138,8 +138,7 @@ namespace {
         static_cast<MultipleConfig>(Config::GetSingleton()).LoadSetupConfig();
         if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
             logger::info("Register GameEvents...");
-            //EventHolder->AddEventSink<RE::TESLoadGameEvent>(&ImpactDataManager::GetSingleton());
-            EventHolder->AddEventSink<RE::TESHitEvent>(&ImpactDataManager::GetSingleton());
+            EventHolder->AddEventSink<RE::TESHitEvent>(&ImpactManager::GetSingleton());
         }
     }
 

@@ -76,13 +76,14 @@ namespace Mus {
 		};
 		struct Condition {
 			std::vector<PluginsInfo> ImpactDataSets;
+			std::vector<PluginsInfo> SpellItems;
 			std::string originalCondition[ConditionOption::OptionTotal];
 			std::vector<ConditionItemOr> AND[ConditionOption::OptionTotal];
 		};
 
 		bool RegisterCondition(Condition condition, std::string presetPath);
 
-		const std::vector<Condition> GetCondition(RE::Actor* Aggressor, RE::Actor* Target);
+		const concurrency::concurrent_vector<Condition> GetCondition(RE::Actor* Aggressor, RE::Actor* Target);
 
 	private:
 		concurrency::concurrent_vector<Condition> ConditionList;
