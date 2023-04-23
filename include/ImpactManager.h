@@ -24,11 +24,12 @@ namespace Mus {
 			float a_pickLength = 0.0f, bool a_applyNodeRotation = false, bool a_useNodeLocalRotation = false);
 	};
 
+	constexpr double unit = 0.0142875;
 	class TaskSpwanVFX : public SKSE::detail::TaskDelegate
 	{
 	public:
-		TaskSpwanVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, const char* nodeName, RE::NiPoint3 hitPoint = emptyPoint)
-			: mImpactData(impactData), mObj(obj), mNodeName(nodeName), mHitPoint(hitPoint) {};
+		TaskSpwanVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, RE::BSFixedString nodeName)
+			: mImpactData(impactData), mObj(obj), mNodeName(nodeName) {};
 
 		virtual void Run() override;
 		virtual void Dispose() override;
@@ -36,8 +37,20 @@ namespace Mus {
 	private:
 		RE::BGSImpactDataSet* mImpactData = nullptr;
 		RE::TESObjectREFR* mObj = nullptr;
-		const char* mNodeName;
-		RE::NiPoint3 mHitPoint = emptyPoint;
+		RE::BSFixedString mNodeName;
+
+		static RE::BSTempEffectParticle* Spawn(RE::TESObjectCELL * a_cell, float a_lifetime, const char* a_modelName, const RE::NiMatrix3& a_normal, const RE::NiPoint3& a_position, float a_scale, std::uint32_t a_flags, RE::NiAVObject* a_target)
+		{
+			using func_t = decltype(&TaskSpwanVFX::Spawn);
+			REL::Relocation<func_t> func{ RELOCATION_ID(29219, 30072) };
+			return func(a_cell, a_lifetime, a_modelName, a_normal, a_position, a_scale, a_flags, a_target);
+		}
+		static void* sub_1401B8660(RE::BGSDecalManager* decalManager, float* value, RE::NiAVObject* a4)
+		{
+			using func_t = decltype(&TaskSpwanVFX::sub_1401B8660);
+			REL::Relocation<func_t> func{ RELOCATION_ID(15029, 15203) };
+			return func(decalManager, value, a4);
+		}
 	};
 
 	class TaskCast : public SKSE::detail::TaskDelegate
@@ -136,5 +149,25 @@ namespace Mus {
 		void UnRegister(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* dataSet);
 		void UnRegister(RE::Actor* actor, bool LeftHand, RE::SpellItem* spell);
 		void UnRegister(RE::Actor* actor, bool LeftHand, Type type);
+
+		inline bool IsValidHitEvent(const RE::TESHitEvent* evn) {
+			if (!evn)
+				return false;
+			RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get());
+			auto target_aiprocess = target ? target->GetActorRuntimeData().currentProcess : nullptr;
+			if (!target_aiprocess || !target_aiprocess->middleHigh)
+				return false;
+			auto hitData = target_aiprocess->middleHigh->lastHitData;
+			if (hitData)
+			{
+				if (!IsEqual(hitData->hitPosition, emptyPoint))
+				{
+					return true;
+				}
+				else
+					return false;
+			}
+			return true;
+		}
 	};
 }

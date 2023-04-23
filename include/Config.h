@@ -129,7 +129,7 @@ namespace Mus {
 
         inline std::string GetConfigSettingsStringValue(std::string line, std::string& variable)
         {
-            std::string value = "";
+            std::string value = line;
             std::vector<std::string> splittedLine = split(line, "=");
             variable = "";
             if (splittedLine.size() > 1)

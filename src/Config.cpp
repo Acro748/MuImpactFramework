@@ -106,6 +106,8 @@ namespace Mus {
                         std::string presetfile;
 
                         std::string line;
+                        bool isAggressor = false;
+                        bool isTarget = false;
                         while (std::getline(file, line))
                         {
                             //trim(line);
@@ -138,6 +140,8 @@ namespace Mus {
                                             continue;
                                         condition.ImpactDataSets.emplace_back(pluginInfo);
                                     }
+                                    isAggressor = false;
+                                    isTarget = false;
                                 }
                                 else if (variableName == "Spell")
                                 {
@@ -162,14 +166,27 @@ namespace Mus {
                                             continue;
                                         condition.SpellItems.emplace_back(pluginInfo);
                                     }
+                                    isAggressor = false;
+                                    isTarget = false;
                                 }
                                 else if (variableName == "Aggressor")
                                 {
                                     condition.originalCondition[ConditionManager::ConditionOption::Aggressor] = variableValue;
+                                    isAggressor = true;
+                                    isTarget = false;
                                 }
                                 else if (variableName == "Target")
                                 {
                                     condition.originalCondition[ConditionManager::ConditionOption::Target] = variableValue;
+                                    isAggressor = false;
+                                    isTarget = true;
+                                }
+                                else
+                                {
+                                    if (isAggressor)
+                                        condition.originalCondition[ConditionManager::ConditionOption::Aggressor] += variableValue;
+                                    else if (isTarget)
+                                        condition.originalCondition[ConditionManager::ConditionOption::Target] += variableValue;
                                 }
                             }
                         }

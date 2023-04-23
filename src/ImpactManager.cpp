@@ -48,7 +48,7 @@ namespace Mus {
 		float a_pickLength, bool a_applyNodeRotation, bool a_useNodeLocalRotation)
 	{
 		using func_t = decltype(&TaskPlayImpactVFX::PlayImpactEffect);
-		REL::VariantID offset(55677, 56208, 0x009D06C0);
+		REL::VariantID offset(55677, 56208, 0x9D06C0);
 		REL::Relocation<func_t> func{ offset };
 		return func(VMinternal, stackId, a_ref, a_impactEffect, a_nodeName, a_pickDirection_x, a_pickDirection_y, a_pickDirection_z,
 			a_pickLength, a_applyNodeRotation, a_useNodeLocalRotation);
@@ -59,46 +59,26 @@ namespace Mus {
 		RE::Actor* actor = skyrim_cast<RE::Actor*>(mObj);
 		if (!actor || !actor->loadedData || !actor->loadedData->data3D || !mObj->parentCell)
 			return;
+		auto obj = actor->loadedData->data3D.get()->GetObjectByName(mNodeName);
+		if (!obj)
+			return;
+		RE::NiPoint3 pos = obj->world.translate * unit;
 		RE::TESRace* race = actor->GetRace();
 		if (!race || !race->bloodImpactMaterial)
 			return;
 		auto found = mImpactData->impactMap.find(race->bloodImpactMaterial);
 		if (found == mImpactData->impactMap.end())
 			return;
-		auto data = found->second;
-		//for (uint32_t i = 0; i < 100; i++)
-		//{
-			auto tep = RE::BSTempEffectParticle::Spawn(mObj->parentCell, 10000, "meshes\\effects\\impacteffects\\AP05\\SLASHEFFECT.nif", emptyPoint, mHitPoint, 10.0f, 0, actor->loadedData->data3D.get()->GetObjectByName(mNodeName));
-			tep->impactData = data;
-			logger::info("Spawn {}", tep ? "done" : "fail");
-			if (tep)
-				logger::info("particle {} / spawn {}", tep->particleObject ? tep->particleObject.get()->name.c_str() : "null"
-					, tep->spawnNode ? tep->spawnNode.get()->name.c_str() : "null");
-			tep = RE::BSTempEffectParticle::Spawn(mObj->parentCell, 10000, "Data\\meshes\\effects\\impacteffects\\AP05\\SLASHEFFECT.nif", emptyPoint, mHitPoint, 10.0f, 0, actor->loadedData->data3D.get()->GetObjectByName(mNodeName));
-			tep->impactData = data;
-			logger::info("Spawn {}", tep ? "done" : "fail");
-			if (tep)
-				logger::info("particle {} / spawn {}", tep->particleObject ? tep->particleObject.get()->name.c_str() : "null"
-					, tep->spawnNode ? tep->spawnNode.get()->name.c_str() : "null");
-			tep = RE::BSTempEffectParticle::Spawn(mObj->parentCell, 10000, "effects\\impacteffects\\AP05\\SLASHEFFECT", emptyPoint, mHitPoint, 10.0f, 0, actor->loadedData->data3D.get()->GetObjectByName(mNodeName));
-			tep->impactData = data;
-			logger::info("Spawn {}", tep ? "done" : "fail");
-			if (tep)
-				logger::info("particle {} / spawn {}", tep->particleObject ? tep->particleObject.get()->name.c_str() : "null"
-					, tep->spawnNode ? tep->spawnNode.get()->name.c_str() : "null");
-			tep = RE::BSTempEffectParticle::Spawn(mObj->parentCell, 10000, "meshes\\effects\\impacteffects\\AP05\\SLASHEFFECT", emptyPoint, mHitPoint, 10.0f, 0, actor->loadedData->data3D.get()->GetObjectByName(mNodeName));
-			tep->impactData = data;
-			logger::info("Spawn {}", tep ? "done" : "fail");
-			if (tep)
-				logger::info("particle {} / spawn {}", tep->particleObject ? tep->particleObject.get()->name.c_str() : "null"
-					, tep->spawnNode ? tep->spawnNode.get()->name.c_str() : "null");
-			tep = RE::BSTempEffectParticle::Spawn(mObj->parentCell, 10000, "impacteffects\\AP05\\SLASHEFFECT", emptyPoint, mHitPoint, 10.0f, 0, actor->loadedData->data3D.get()->GetObjectByName(mNodeName));
-			tep->impactData = data;
-			logger::info("Spawn {}", tep ? "done" : "fail");
-			if (tep)
-				logger::info("particle {} / spawn {}", tep->particleObject ? tep->particleObject.get()->name.c_str() : "null"
-					, tep->spawnNode ? tep->spawnNode.get()->name.c_str() : "null");
-		//}
+		RE::BGSImpactData* data = found->second;
+		auto tep = Spawn(mObj->parentCell, 1000, data->GetModel(), RE::NiMatrix3(), emptyPoint, 1.0f, 7, obj);
+		logger::info("Spawn {}", tep ? "done" : "fail");
+		if (tep)
+			logger::info("modelName {} / x{},y{},z{}", tep->modelName
+				, tep->spawnNodeTransform.translate.x, tep->spawnNodeTransform.translate.y, tep->spawnNodeTransform.translate.z);
+
+		float value[10] = { pos.x, pos.y, pos.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+		value[6] = *(REL::Relocation<float*>{ RELOCATION_ID(515123, 410468) });
+		sub_1401B8660(RE::BGSDecalManager::GetSingleton(), value, nullptr);
 	}
 	void TaskSpwanVFX::Dispose()
 	{
@@ -118,10 +98,8 @@ namespace Mus {
 	}
 	void TaskCast::Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* source, RE::TESObjectREFR* target)
 	{
-		if (REL::Module::IsVR())
-			return;
 		using func_t = decltype(&TaskCast::Cast);
-		REL::VariantID offset(55149, 55747, 0x0);
+		REL::VariantID offset(55149, 55747, 0x930EC0);
 		REL::Relocation<func_t> func{ offset };
 		return func(VMinternal, stackId, spell, source, target);
 	}
@@ -283,7 +261,7 @@ namespace Mus {
 			logger::error("Couldn't get SKSETaskInterface, so switch to instance mode");
 		for (auto impactData : ImpactDataSet[LeftHand])
 		{
-			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, nodeName.c_str(), hitDir);
+			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, nodeName);
 			if (!g_task || instance || Config::GetSingleton().GetInstanceMode())
 			{
 				//logger::info("instance");
@@ -431,6 +409,9 @@ namespace Mus {
 	{
 		if (!evn || !evn->cause || !evn->target)
 			return EventResult::kContinue;
+
+		if (!IsValidHitEvent(evn))
+			return EventResult::kContinue;;
 
 		RE::Actor* cause = skyrim_cast<RE::Actor*>(evn->cause.get());
 		if (!cause)

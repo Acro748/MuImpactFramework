@@ -98,7 +98,7 @@ namespace Mus {
 
 		inline void Logging(RE::Actor* actor, std::uint8_t option, ConditionItem& OR, bool isTrue) {
 			std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
-			if (IsContainString(typestr, "EditorID"))
+			if (IsContainString(typestr, "EditorID") || IsContainString(typestr, "Type"))
 			{
 				logger::debug("{} {:x} : {} Condition {}{}({}) is {}", actor->GetName(), actor->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.arg,
@@ -125,6 +125,18 @@ namespace Mus {
 			RE::TESForm* form = GetFormByID(id, pluginname);
 			RE::TESForm* equipped = actor->GetEquippedObject(LeftHand);
 			return equipped && form && equipped->formID == form->formID;
+		}
+		inline bool IsEquippedType(RE::Actor* actor, bool LeftHand, std::string typestr) {
+			if (!actor)
+				return false;
+			RE::TESForm* equipped = actor->GetEquippedObject(LeftHand);
+			RE::TESObjectWEAP* weapon = equipped ? skyrim_cast<RE::TESObjectWEAP*>(equipped) : nullptr;
+			std::uint32_t type = std::stoi(typestr);
+			if (weapon && weapon->weaponData.animationType.underlying() == type)
+				return true;
+			else if (!weapon && type == 0)
+				return true;
+			return false;
 		}
 		inline bool isEquippedHasKeyword(RE::Actor* actor, bool LeftHand, std::string pluginname, RE::FormID id) {
 			if (!actor)

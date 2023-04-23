@@ -37,6 +37,9 @@ namespace Mus {
 						case ConditionType::IsEquippedLeft:
 							isTrue = isEquipped(actor, true, OR.pluginName, OR.id);
 							break;
+						case ConditionType::IsEquippedLeftType:
+							isTrue = IsEquippedType(actor, true, OR.arg);
+							break;
 						case ConditionType::IsEquippedLeftHasKeyword:
 							isTrue = isEquippedHasKeyword(actor, true, OR.pluginName, OR.id);
 							break;
@@ -45,6 +48,9 @@ namespace Mus {
 							break;
 						case ConditionType::IsEquippedRight:
 							isTrue = isEquipped(actor, false, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsEquippedRightType:
+							isTrue = IsEquippedType(actor, false, OR.arg);
 							break;
 						case ConditionType::IsEquippedRightHasKeyword:
 							isTrue = isEquippedHasKeyword(actor, false, OR.pluginName, OR.id);
