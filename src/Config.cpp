@@ -56,17 +56,25 @@ namespace Mus {
             }
             else if (currentSetting == "[General]")
             {
-                if (variableName == "ImpactMode")
-                {
-                    ImpactMode = GetConfigSettingsIntValue(variableValue);
-                }
-                else if (variableName == "InstanceMode")
+                if (variableName == "InstanceMode")
                 {
                     InstanceMode = GetConfigSettingsBoolValue(variableValue);
                 }
                 else if (variableName == "NodeDiscoveryMode")
                 {
                     NodeDiscoveryMode = GetConfigSettingsIntValue(variableValue);
+                }
+                else if (variableName == "Persist")
+                {
+                    PersistMode = GetConfigSettingsIntValue(variableValue);
+                }
+                else if (variableName == "EnableMagic")
+                {
+                    EnableMagic = GetConfigSettingsBoolValue(variableValue);
+                }
+                else if (variableName == "EnableInanimateObject")
+                {
+                    EnableInanimateObject = GetConfigSettingsBoolValue(variableValue);
                 }
             }
         }

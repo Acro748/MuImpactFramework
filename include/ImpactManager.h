@@ -4,52 +4,43 @@ namespace Mus {
 	using EventResult = RE::BSEventNotifyControl;
 	constexpr RE::NiPoint3 emptyPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 
-	class TaskPlayImpactVFX : public SKSE::detail::TaskDelegate
+	class TaskPlayImpactVFX :
+		public RE::BSTEventSink<RE::BSAnimationGraphEvent>
 	{
 	public:
-		TaskPlayImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, const RE::BSFixedString& nodeName, RE::NiPoint3 direct = RE::NiPoint3(0.0f, 0.0f, 0.0f));
+		TaskPlayImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, RE::NiAVObject* node, RE::NiPoint3 direct = RE::NiPoint3(0.0f, 0.0f, 0.0f))
+			: mImpactData(impactData), mObj(obj), mNode(node), mDirect(direct) {};
 
-		virtual void Run() override;
-		virtual void Dispose() override;
-
+		void Run();
+		void Dispose();
+	protected:
+		EventResult ProcessEvent(const RE::BSAnimationGraphEvent* evn, RE::BSTEventSource<RE::BSAnimationGraphEvent>*) override {
+			Run();
+			return EventResult::kContinue;
+		};
 	private:
+		bool AddedEvent = false;
 		RE::BGSImpactDataSet* mImpactData = nullptr;
 		RE::TESObjectREFR* mObj = nullptr;
-		RE::BSFixedString mNodeName;
+		RE::NiAVObject* mNode;
 		RE::NiPoint3 mDirect = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 
-		static bool PlayImpactEffect(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, 
-			RE::TESObjectREFR* a_ref, RE::BGSImpactDataSet* a_impactEffect, const RE::BSFixedString& a_nodeName, 
-			float a_pickDirection_x, float a_pickDirection_y, float a_pickDirection_z,
-			float a_pickLength = 0.0f, bool a_applyNodeRotation = false, bool a_useNodeLocalRotation = false);
-	};
+		enum PersistMode {
+			Once,
+			Event,
+			Visit
+		};
+		void AddGraphEvent();
+		void RemoveGraphEvent();
 
-	constexpr double unit = 0.0142875;
-	class TaskSpwanVFX : public SKSE::detail::TaskDelegate
-	{
-	public:
-		TaskSpwanVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, RE::BSFixedString nodeName)
-			: mImpactData(impactData), mObj(obj), mNodeName(nodeName) {};
+		void VisitNodes();
 
-		virtual void Run() override;
-		virtual void Dispose() override;
-
-	private:
-		RE::BGSImpactDataSet* mImpactData = nullptr;
-		RE::TESObjectREFR* mObj = nullptr;
-		RE::BSFixedString mNodeName;
-
-		static RE::BSTempEffectParticle* Spawn(RE::TESObjectCELL * a_cell, float a_lifetime, const char* a_modelName, const RE::NiMatrix3& a_normal, const RE::NiPoint3& a_position, float a_scale, std::uint32_t a_flags, RE::NiAVObject* a_target)
+		static bool PlayImpactEffect(RE::BGSImpactManager* a_impactManager, RE::TESObjectREFR* a_ref, RE::BGSImpactDataSet* a_impactEffect, const char* a_nodeName,
+			RE::NiPoint3& a_pickDirection, float a_pickLength, bool a_applyNodeRotation, bool a_useNodeLocalRotation)
 		{
-			using func_t = decltype(&TaskSpwanVFX::Spawn);
-			REL::Relocation<func_t> func{ RELOCATION_ID(29219, 30072) };
-			return func(a_cell, a_lifetime, a_modelName, a_normal, a_position, a_scale, a_flags, a_target);
-		}
-		static void* sub_1401B8660(RE::BGSDecalManager* decalManager, float* value, RE::NiAVObject* a4)
-		{
-			using func_t = decltype(&TaskSpwanVFX::sub_1401B8660);
-			REL::Relocation<func_t> func{ RELOCATION_ID(15029, 15203) };
-			return func(decalManager, value, a4);
+			using func_t = decltype(&TaskPlayImpactVFX::PlayImpactEffect);
+			REL::Relocation<func_t> func{ RELOCATION_ID(35320, 36215) };
+			return func(a_impactManager, a_ref, a_impactEffect, a_nodeName, a_pickDirection, a_pickLength, a_applyNodeRotation, a_useNodeLocalRotation);
 		}
 	};
 
@@ -89,13 +80,16 @@ namespace Mus {
 		const std::vector<RE::BGSImpactDataSet*> GetImpactDataSet(bool LeftHand) {
 			return ImpactDataSet[LeftHand];
 		};
+		const std::vector<RE::SpellItem*> GetSpell(bool LeftHand) {
+			return Spell[LeftHand];
+		};
 	private:
 		std::vector<RE::BGSImpactDataSet*> ImpactDataSet[2];
 		std::vector<RE::SpellItem*> Spell[2];
 
 		void LoadHitPlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDir = emptyPoint);
-		void LoadHitPlayImpactData(RE::Actor* cause, bool LeftHand);
-		void PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, const RE::BSFixedString& nodeName, RE::NiPoint3 hitDir = emptyPoint, bool instance = false);
+		void LoadHitPlayImpactData(RE::Actor* cause, RE::TESObjectREFR* target, bool LeftHand);
+		void PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiAVObject* node, RE::NiPoint3 hitDir = emptyPoint, bool instance = false);
 
 		void CastSpell(RE::TESObjectREFR* source, RE::TESObjectREFR* target, bool LeftHand, bool instance = false);
 
@@ -103,10 +97,6 @@ namespace Mus {
 		const RE::BSFixedString HandR = "NPC R Hand [RHnd]";
 	};
 
-
-
-	//20408, 20860, void*(ImpactDataSet*, uint64, uint64)
-	//, 15197, void(decalmanager*, uint8_t, uint64_t, void*
 	class ImpactManager : 
 		public RE::BSTEventSink<RE::TESHitEvent>
 	{
@@ -116,7 +106,8 @@ namespace Mus {
 			return instance;
 		};
 
-		const std::uint32_t ImpactDataManagerRecord = _byteswap_ulong('IDMR');
+		const std::uint32_t ImpactManagerImpactData = _byteswap_ulong('IMID');
+		const std::uint32_t ImpactManagerSpell = _byteswap_ulong('IMSP');
 		static void Save(SKSE::SerializationInterface* serde);
 		static void Load(SKSE::SerializationInterface* serde, std::uint32_t type);
 
@@ -153,21 +144,21 @@ namespace Mus {
 		inline bool IsValidHitEvent(const RE::TESHitEvent* evn) {
 			if (!evn)
 				return false;
+			RE::Actor* cause = skyrim_cast<RE::Actor*>(evn->cause.get());
 			RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get());
+			auto cause_aiprocess = cause ? cause->GetActorRuntimeData().currentProcess : nullptr;
 			auto target_aiprocess = target ? target->GetActorRuntimeData().currentProcess : nullptr;
-			if (!target_aiprocess || !target_aiprocess->middleHigh)
-				return false;
-			auto hitData = target_aiprocess->middleHigh->lastHitData;
-			if (hitData)
+			if (target_aiprocess && target_aiprocess->middleHigh && target_aiprocess->middleHigh->lastHitData)
 			{
-				if (!IsEqual(hitData->hitPosition, emptyPoint))
-				{
+				auto hitData = target_aiprocess->middleHigh->lastHitData;
+				if (hitData && !IsEqual(hitData->hitPosition, emptyPoint))
 					return true;
-				}
-				else
-					return false;
 			}
-			return true;
+			else if (!target && Config::GetSingleton().GetEnableInanimateObject())
+				return true;
+			else if (evn->projectile != 0 && Config::GetSingleton().GetEnableMagic())
+				return true;
+			return false;
 		}
 	};
 }

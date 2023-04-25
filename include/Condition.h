@@ -48,8 +48,14 @@ namespace Mus {
 			IsInAir,
 			IsDead,
 
-			IsLeftAttacking,
-			IsRightAttacking,
+			IsLeftAttacking, //AggressorOnly
+			IsRightAttacking, //AggressorOnly
+			IsBlocked, //TargetOnly
+			IsCritical, //TargetOnly
+			IsSneakCritical, //TargetOnly
+			IsBash, //AggressorOnly
+			IsPowerAttack, //AggressorOnly
+			IsInanimateObject, //TargetOnly
 
 			None
 		};
@@ -83,7 +89,7 @@ namespace Mus {
 
 		bool RegisterCondition(Condition condition, std::string presetPath);
 
-		const concurrency::concurrent_vector<Condition> GetCondition(RE::Actor* Aggressor, RE::Actor* Target);
+		const concurrency::concurrent_vector<Condition> GetCondition(const RE::TESHitEvent* evn);
 
 	private:
 		concurrency::concurrent_vector<Condition> ConditionList;
@@ -96,23 +102,23 @@ namespace Mus {
 			return (ConditionResult ^ NOT);
 		}
 
-		inline void Logging(RE::Actor* actor, std::uint8_t option, ConditionItem& OR, bool isTrue) {
+		inline void Logging(RE::TESObjectREFR* obj, std::uint8_t option, ConditionItem& OR, bool isTrue) {
 			std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
 			if (IsContainString(typestr, "EditorID") || IsContainString(typestr, "Type"))
 			{
-				logger::debug("{} {:x} : {} Condition {}{}({}) is {}", actor->GetName(), actor->formID,
+				logger::debug("{} {:x} : {} Condition {}{}({}) is {}", obj->GetName(), obj->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.arg,
 					isValidCondition(isTrue, OR.NOT) ? "True" : "False");
 			}
 			else if (OR.type >= ConditionType::IsFemale)
 			{
 				std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
-				logger::debug("{} {:x} : {} Condition {}{}() is {}", actor->GetName(), actor->formID,
+				logger::debug("{} {:x} : {} Condition {}{}() is {}", obj->GetName(), obj->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, isValidCondition(isTrue, OR.NOT) ? "True" : "False");
 			}
 			else
 			{
-				logger::debug("{} {:x} : {} Condition {}{}({}{}{:x}) is {}", actor->GetName(), actor->formID,
+				logger::debug("{} {:x} : {} Condition {}{}({}{}{:x}) is {}", obj->GetName(), obj->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.pluginName == "" ? "" : "|", OR.id,
 					isValidCondition(isTrue, OR.NOT) ? "True" : "False");
 			}
@@ -223,19 +229,28 @@ namespace Mus {
 			return faction && actor->IsInFaction(faction);
 		}
 
-		inline bool hasKeyword(RE::Actor* actor, std::string pluginname, RE::FormID id) {
-			if (!actor)
+		inline bool hasKeyword(RE::TESObjectREFR* obj, std::string pluginname, RE::FormID id) {
+			if (!obj)
 				return false;
 			RE::BGSKeyword* keyword = skyrim_cast<RE::BGSKeyword*>(GetFormByID(id, pluginname));
 			if (!keyword)
 				return false;
-			RE::TESRace* race = actor->GetRace();
-			return (actor->HasKeyword(keyword) || (race ? race->HasKeyword(keyword) : false));
+			RE::Actor* actor = skyrim_cast<RE::Actor*>(obj);
+			if (actor)
+			{
+				RE::TESRace* race = actor ? actor->GetRace() : nullptr;
+				return (actor->HasKeyword(keyword) || (race ? race->HasKeyword(keyword) : false));
+			}
+			return obj->HasKeyword(keyword);
 		}
-		inline bool hasKeywordEditorID(RE::Actor* actor, std::string editorID) {
-			if (!actor)
+		inline bool hasKeywordEditorID(RE::TESObjectREFR* obj, std::string editorID) {
+			if (!obj)
 				return false;
-			return actor->HasKeywordString(editorID);
+			RE::Actor* actor = skyrim_cast<RE::Actor*>(obj);
+			if (actor)
+				return actor->HasKeywordString(editorID);
+			RE::BGSKeyword* keyword = skyrim_cast<RE::BGSKeyword*>(RE::TESForm::LookupByEditorID(editorID.c_str()));
+			return keyword ? obj->HasKeyword(keyword) : false;
 		}
 		
 		inline bool hasMagicEffect(RE::Actor* actor, std::string pluginname, RE::FormID id) {
@@ -379,11 +394,35 @@ namespace Mus {
 			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
 			return aiprocess && aiprocess->high && aiprocess->high->attackData && !(aiprocess->high->attackData->IsLeftAttack() ^ LeftHand);
 		}
+		inline bool isBlocked(SKSE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) {
+			return flags.all(RE::TESHitEvent::Flag::kHitBlocked);
+		}
+		inline bool isCritical(RE::Actor* actor, bool LeftHand) {
+			if (!actor)
+				return false;
+			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
+			return aiprocess && aiprocess->middleHigh && aiprocess->middleHigh->lastHitData && aiprocess->middleHigh->lastHitData->flags.all(RE::HitData::Flag::kCritical);
+		}
+		inline bool isSneakCritical(RE::Actor* actor, bool LeftHand) {
+			if (!actor)
+				return false;
+			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
+			return aiprocess && aiprocess->middleHigh && aiprocess->middleHigh->lastHitData && aiprocess->middleHigh->lastHitData->flags.all(RE::HitData::Flag::kSneakAttack);
+		}
+		inline bool isBash(SKSE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) {
+			return flags.all(RE::TESHitEvent::Flag::kBashAttack);
+		}
+		inline bool isPowerAttack(SKSE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) {
+			return flags.all(RE::TESHitEvent::Flag::kPowerAttack);
+		}
+		inline bool isInanimateObject(RE::Actor* actor) {
+			return actor ? false : true;
+		}
+
 
 		inline bool isEquel(float base, float value) {
 			return (base - value) >= -0.0001f && (base - value) <= 0.0001f;
 		}
-
 		inline bool isEquel(RE::NiPoint3 base, RE::NiPoint3 value) {
 			return isEquel(base.x, value.x) && isEquel(base.y, value.y) && isEquel(base.z, value.z);
 		}

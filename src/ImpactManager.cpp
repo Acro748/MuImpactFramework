@@ -1,88 +1,103 @@
 #include "ImpactManager.h"
 
 namespace Mus {
-	TaskPlayImpactVFX::TaskPlayImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, const RE::BSFixedString& nodeName, RE::NiPoint3 direct)
-		: mImpactData(impactData), mObj(obj), mNodeName(nodeName), mDirect(direct)
-	{
-	
-	}
 	void TaskPlayImpactVFX::Run()
 	{
-		if (!mImpactData || !mObj)
+		if (!mImpactData || !mObj || !mNode)
+		{
+			Dispose();
 			return;
-
-		if (Config::GetSingleton().GetImpactMode() == 0)
-		{
-			auto vm = RE::SkyrimVM::GetSingleton();
-			if (!vm || !vm->impl)
-				return;
-			if (!PlayImpactEffect(vm->impl.get(), 0, mObj, mImpactData, mNodeName.c_str(),
-				mDirect.x, mDirect.y, mDirect.z, 0.0f, false, false))
-			{
-				logger::debug("Failed to create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNodeName.c_str(), mObj->formID);
-			}
-			else
-				logger::debug("create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNodeName.c_str(), mObj->formID);
 		}
-		else if (Config::GetSingleton().GetImpactMode() == 1)
+		auto impactManager = RE::BGSImpactManager::GetSingleton();
+		if (!impactManager)
 		{
-			auto impactManager = RE::BGSImpactManager::GetSingleton();
-			if (!impactManager)
-				return;
-			if (!impactManager->PlayImpactEffect(mObj, mImpactData, mNodeName.c_str(),
-				mDirect, 0.0f, false, false))
-			{
-				logger::debug("Failed to create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNodeName.c_str(), mObj->formID);
-			}
-			else
-				logger::debug("create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNodeName.c_str(), mObj->formID);
+			Dispose();
+			return;
+		}
+		if (!PlayImpactEffect(impactManager, mObj, mImpactData, mNode->name.c_str(),
+			mDirect, 0.0f, false, false))
+		{
+			logger::debug("Failed to create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNode->name.c_str(), mObj->formID);
+			AddGraphEvent();
+			VisitNodes();
+		}
+		else
+		{
+			logger::debug("create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNode->name.c_str(), mObj->formID);
+			Dispose();
 		}
 	}
 	void TaskPlayImpactVFX::Dispose()
 	{
+		RemoveGraphEvent();
 		delete this;
 	}
-	bool TaskPlayImpactVFX::PlayImpactEffect(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, 
-		RE::TESObjectREFR* a_ref, RE::BGSImpactDataSet* a_impactEffect, const RE::BSFixedString& a_nodeName, 
-		float a_pickDirection_x, float a_pickDirection_y, float a_pickDirection_z,
-		float a_pickLength, bool a_applyNodeRotation, bool a_useNodeLocalRotation)
+	void TaskPlayImpactVFX::AddGraphEvent()
 	{
-		using func_t = decltype(&TaskPlayImpactVFX::PlayImpactEffect);
-		REL::VariantID offset(55677, 56208, 0x9D06C0);
-		REL::Relocation<func_t> func{ offset };
-		return func(VMinternal, stackId, a_ref, a_impactEffect, a_nodeName, a_pickDirection_x, a_pickDirection_y, a_pickDirection_z,
-			a_pickLength, a_applyNodeRotation, a_useNodeLocalRotation);
+		if (Config::GetSingleton().GetPersistMode() != PersistMode::Event)
+			return;
+		logger::debug("Change to event mode for create ImpactVFX {:x} on {:x}", mImpactData->formID, mObj->formID);
+		RE::BSAnimationGraphManagerPtr graphManager;
+		mObj->GetAnimationGraphManager(graphManager);
+		if (!graphManager)
+			return;
+		graphManager->graphs.front()->GetEventSource<RE::BSAnimationGraphEvent>()->AddEventSink(this);
+		AddedEvent = true;
 	}
-
-	void TaskSpwanVFX::Run()
+	void TaskPlayImpactVFX::RemoveGraphEvent()
 	{
-		RE::Actor* actor = skyrim_cast<RE::Actor*>(mObj);
-		if (!actor || !actor->loadedData || !actor->loadedData->data3D || !mObj->parentCell)
+		if (!AddedEvent)
 			return;
-		auto obj = actor->loadedData->data3D.get()->GetObjectByName(mNodeName);
-		if (!obj)
+		RE::BSAnimationGraphManagerPtr graphManager;
+		mObj->GetAnimationGraphManager(graphManager);
+		if (!graphManager)
 			return;
-		RE::NiPoint3 pos = obj->world.translate * unit;
-		RE::TESRace* race = actor->GetRace();
-		if (!race || !race->bloodImpactMaterial)
-			return;
-		auto found = mImpactData->impactMap.find(race->bloodImpactMaterial);
-		if (found == mImpactData->impactMap.end())
-			return;
-		RE::BGSImpactData* data = found->second;
-		auto tep = Spawn(mObj->parentCell, 1000, data->GetModel(), RE::NiMatrix3(), emptyPoint, 1.0f, 7, obj);
-		logger::info("Spawn {}", tep ? "done" : "fail");
-		if (tep)
-			logger::info("modelName {} / x{},y{},z{}", tep->modelName
-				, tep->spawnNodeTransform.translate.x, tep->spawnNodeTransform.translate.y, tep->spawnNodeTransform.translate.z);
-
-		float value[10] = { pos.x, pos.y, pos.z, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-		value[6] = *(REL::Relocation<float*>{ RELOCATION_ID(515123, 410468) });
-		sub_1401B8660(RE::BGSDecalManager::GetSingleton(), value, nullptr);
+		bool sinked = true;
+		for (const auto& animationGraph : graphManager->graphs) {
+			if (!sinked) {
+				break;
+			}
+			const auto eventSource = animationGraph->GetEventSource<RE::BSAnimationGraphEvent>();
+			for (const auto& sink : eventSource->sinks) {
+				if (sink == this) {
+					eventSource->RemoveEventSink(this);
+					sinked = false;
+					break;
+				}
+			}
+		}
 	}
-	void TaskSpwanVFX::Dispose()
+	void TaskPlayImpactVFX::VisitNodes()
 	{
-		delete this;
+		if (Config::GetSingleton().GetPersistMode() != PersistMode::Visit)
+			return;
+		logger::debug("Change to visit mode for create ImpactVFX {:x} on {:x}", mImpactData->formID, mObj->formID);
+		auto impactManager = RE::BGSImpactManager::GetSingleton();
+		if (!impactManager)
+		{
+			Dispose();
+			return;
+		}
+		RE::NiAVObject* node = mNode;
+		bool isPlayed = false;
+		RE::BSVisit::TraverseScenegraphObjects(node, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
+			isPlayed = PlayImpactEffect(impactManager, mObj, mImpactData, a_object->name.c_str(),
+				mDirect, 0.0f, false, false);
+			if (isPlayed)
+				return RE::BSVisit::BSVisitControl::kStop;
+			return RE::BSVisit::BSVisitControl::kContinue;
+		});
+		if (!isPlayed && mNode->parent)
+		{
+			node = mNode->parent;
+			while (node) {
+				if (PlayImpactEffect(impactManager, mObj, mImpactData, node->name.c_str(),
+					mDirect, 0.0f, false, false))
+					break;
+				node = node->parent;
+			}
+		}
+		Dispose();
 	}
 
 	void TaskCast::Run()
@@ -148,21 +163,35 @@ namespace Mus {
 		}
 		RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get());
 		auto target_aiprocess = target ? target->GetActorRuntimeData().currentProcess : nullptr;
-		if (!target_aiprocess || !target_aiprocess->middleHigh)
-			return;
-		auto hitData = target_aiprocess->middleHigh->lastHitData;
-		if (hitData)
+		if (target_aiprocess && target_aiprocess->middleHigh && target_aiprocess->middleHigh->lastHitData)
 		{
-			if (!IsEqual(hitData->hitPosition, emptyPoint))
+			auto hitData = target_aiprocess->middleHigh->lastHitData;
+			if (hitData)
 			{
 				logger::debug("Find node by HitPosition...");
-				LoadHitPlayImpactData(evn->target.get(), LeftHand, hitData->hitPosition, RE::NiPoint3(0.0f, 0.0f, 50.0f));
+				LoadHitPlayImpactData(evn->target.get(), LeftHand, hitData->hitPosition, RE::NiPoint3(0.0f, 0.0f, 0.0f));
 			}
 		}
-		else
+		else if (!target && Config::GetSingleton().GetEnableInanimateObject())
 		{
 			logger::debug("Find node by HandNodePosition on causeActor...");
-			LoadHitPlayImpactData(cause, LeftHand);
+			LoadHitPlayImpactData(cause, evn->target.get(), LeftHand);
+		}
+		else if (evn->projectile != 0 && Config::GetSingleton().GetEnableMagic() && evn->cause.get()->loadedData && evn->cause.get()->loadedData->data3D)
+		{
+			auto root = evn->cause.get()->loadedData->data3D.get();
+			auto race = cause->GetRace();
+			RE::TESNPC* npc = cause->GetActorBase();
+			if (race && npc)
+			{
+
+				std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
+				std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
+				if (nodeNames.size() == 0)
+					return;
+				if (auto obj = root->GetObjectByName(nodeNames.at(nodeNames.size()-1).first))
+					LoadHitPlayImpactData(evn->target.get(), LeftHand, obj->world.translate, RE::NiPoint3(0.0f, 0.0f, 0.0f));
+			}
 		}
 		CastSpell(evn->target.get(), evn->target.get(), LeftHand);
 	}
@@ -174,40 +203,34 @@ namespace Mus {
 		if (!root)
 			return;
 
-		RE::Actor* actor = skyrim_cast<RE::Actor*>(target);
-		RE::TESRace* race = actor ? actor->GetRace() : nullptr;
-		RE::TESNPC* npc = actor ? actor->GetActorBase() : nullptr;
-		if (!actor || !race || !npc)
-			return;
-
-		std::string pathString = std::string(race->behaviorGraphs[npc->GetSex()].GetModel());
-		std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
-		if (nodeNames.empty())
-			return;
-		RE::BSFixedString hitNodeName;
-		const float scale = actor->GetScale();
 		RE::NiAVObject* obj = nullptr;
 		float d1 = -10000;
 
 		if (Config::GetSingleton().GetNodeDiscoveryMode() == 0)
 		{
+			RE::Actor* actor = skyrim_cast<RE::Actor*>(target);
+			RE::TESRace* race = actor ? actor->GetRace() : nullptr;
+			RE::TESNPC* npc = actor ? actor->GetActorBase() : nullptr;
+			if (!actor || !race || !npc)
+				return;
+
+			std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
+			std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
+			if (nodeNames.size() == 0)
+				return;
+
 			for (auto& nodeName : nodeNames)
 			{
-				obj = root->GetObjectByName(nodeName.first);
-				if (obj)
+				auto obj_ = root->GetObjectByName(nodeName.first);
+				if (obj_)
 				{
-					RE::NiPoint3 node_pos = obj->world.translate;
+					RE::NiPoint3 node_pos = obj_->world.translate;
 					const float d2 = hitPoint.Dot(node_pos);
 					if (d1 < 0 || d2 < d1)
 					{
-						hitNodeName = nodeName.first;
+						obj = obj_;
 						d1 = d2;
 					}
-					/*if (d2 < nodeName.second * scale * nodeName.second * scale)
-					{
-						hitNodeName = nodeName.first;
-						break;
-					}*/
 				}
 			}
 		}
@@ -227,51 +250,42 @@ namespace Mus {
 			);
 		}
 		if (obj)
-			PlayImpactData(target, LeftHand, obj->name, hitDir);
+			PlayImpactData(target, LeftHand, obj, hitDir);
 	}
-	void ImpactManager_impl::LoadHitPlayImpactData(RE::Actor* cause, bool LeftHand)
+	void ImpactManager_impl::LoadHitPlayImpactData(RE::Actor* cause, RE::TESObjectREFR* target, bool LeftHand)
 	{
 		if (!cause || !cause->loadedData || !cause->loadedData->data3D)
+			return;
+		if (!target || !target->loadedData || !target->loadedData->data3D)
 			return;
 		auto handNode = cause->loadedData->data3D.get()->GetObjectByName(LeftHand ? HandL : HandR);
 		if (!handNode)
 			return;
-		RE::NiAVObject* obj = nullptr;
-		RE::NiPoint3 closePoint = handNode->world.translate;
-		float d1 = -10000;
-		RE::BSVisit::TraverseScenegraphObjects(handNode, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-			float d2 = closePoint.Dot(a_object->world.translate);
-			if (d2 > d1)
-			{
-				obj = a_object;
-				d1 = d2;
-				/*if (d1 <= 20.0f * cause->GetScale())
-					return RE::BSVisit::BSVisitControl::kStop;*/
-			}
-			return RE::BSVisit::BSVisitControl::kContinue;
-			}
-		);
+		RE::NiAVObject* root = target->loadedData->data3D.get();
+		RE::NiAVObject* obj = root;
+		//RE::NiPoint3 closePoint = handNode->world.translate;
+		//float d1 = -10000;
+		//RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
+		//	float d2 = closePoint.Dot(a_object->world.translate);
+		//	if (d2 > d1)
+		//	{
+		//		obj = a_object;
+		//		d1 = d2;
+		//		/*if (d1 <= 20.0f * cause->GetScale())
+		//			return RE::BSVisit::BSVisitControl::kStop;*/
+		//	}
+		//	return RE::BSVisit::BSVisitControl::kContinue;
+		//	}
+		//);
 		if (obj)
-			PlayImpactData(cause, LeftHand, obj->name);
+			PlayImpactData(target, LeftHand, obj);
 	}
-	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, const RE::BSFixedString& nodeName, RE::NiPoint3 hitDir, bool instance)
+	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiAVObject* node, RE::NiPoint3 hitDir, bool instance)
 	{
-		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		if (!g_task)
-			logger::error("Couldn't get SKSETaskInterface, so switch to instance mode");
 		for (auto impactData : ImpactDataSet[LeftHand])
 		{
-			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, nodeName);
-			if (!g_task || instance || Config::GetSingleton().GetInstanceMode())
-			{
-				//logger::info("instance");
-				newTask->Run();
-				newTask->Dispose();
-			}
-			else
-			{
-				g_task->AddTask(newTask);
-			}
+			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, node, hitDir);
+			newTask->Run();
 		}
 	}
 	void ImpactManager_impl::CastSpell(RE::TESObjectREFR* source, RE::TESObjectREFR* target, bool LeftHand, bool instance)
@@ -297,37 +311,58 @@ namespace Mus {
 
 	void ImpactManager::Save(SKSE::SerializationInterface* serde)
 	{
-		if (!serde->OpenRecord(GetSingleton().ImpactDataManagerRecord, 0)) {
-			logger::error("Unable to open record to write cosave data");
-			return;
-		}
-		logger::info("Saving on cosave...");
-		auto dataSize = GetSingleton().actorImpactData.size();
-		serde->WriteRecordData(&dataSize, sizeof(dataSize));
-		for (auto& actorMap : GetSingleton().actorImpactData) {
-			auto actorid = actorMap.first;
-			serde->WriteRecordData(&actorid, sizeof(actorid));
-			auto datasetL = actorMap.second.GetImpactDataSet(true);
-			auto datasetSizeL = datasetL.size();
-			serde->WriteRecordData(&datasetSizeL, sizeof(datasetSizeL));
-			for (auto& data : datasetL) {
-				auto dataid = data->formID;
-				serde->WriteRecordData(&dataid, sizeof(dataid));
+		if (serde->OpenRecord(GetSingleton().ImpactManagerImpactData, 0)) {
+			logger::info("Saving on cosave for ImpactManagerImpactData...");
+			auto dataSize = GetSingleton().actorImpactData.size();
+			serde->WriteRecordData(&dataSize, sizeof(dataSize));
+			for (auto& actorMap : GetSingleton().actorImpactData) {
+				auto actorid = actorMap.first;
+				serde->WriteRecordData(&actorid, sizeof(actorid));
+				auto datasetL = actorMap.second.GetImpactDataSet(true);
+				auto datasetSizeL = datasetL.size();
+				serde->WriteRecordData(&datasetSizeL, sizeof(datasetSizeL));
+				for (auto& data : datasetL) {
+					auto dataid = data->formID;
+					serde->WriteRecordData(&dataid, sizeof(dataid));
+				}
+				auto datasetR = actorMap.second.GetImpactDataSet(false);
+				auto datasetSizeR = datasetR.size();
+				serde->WriteRecordData(&datasetSizeR, sizeof(datasetSizeR));
+				for (auto& data : datasetR) {
+					auto dataid = data->formID;
+					serde->WriteRecordData(&dataid, sizeof(dataid));
+				}
 			}
-			auto datasetR = actorMap.second.GetImpactDataSet(false);
-			auto datasetSizeR = datasetR.size();
-			serde->WriteRecordData(&datasetSizeR, sizeof(datasetSizeR));
-			for (auto& data : datasetR) {
-				auto dataid = data->formID;
-				serde->WriteRecordData(&dataid, sizeof(dataid));
+		}
+		else if (serde->OpenRecord(GetSingleton().ImpactManagerSpell, 0)) {
+			logger::info("Saving on cosave for ImpactManagerSpell...");
+			auto dataSize = GetSingleton().actorImpactData.size();
+			serde->WriteRecordData(&dataSize, sizeof(dataSize));
+			for (auto& actorMap : GetSingleton().actorImpactData) {
+				auto actorid = actorMap.first;
+				serde->WriteRecordData(&actorid, sizeof(actorid));
+				auto spellL = actorMap.second.GetSpell(true);
+				auto spellSizeL = spellL.size();
+				serde->WriteRecordData(&spellSizeL, sizeof(spellSizeL));
+				for (auto& spell : spellL) {
+					auto spellid = spell->formID;
+					serde->WriteRecordData(&spellid, sizeof(spellid));
+				}
+				auto spellR = actorMap.second.GetSpell(false);
+				auto spellSizeR = spellR.size();
+				serde->WriteRecordData(&spellSizeR, sizeof(spellSizeR));
+				for (auto& spell : spellR) {
+					auto spellid = spell->formID;
+					serde->WriteRecordData(&spellid, sizeof(spellid));
+				}
 			}
 		}
 	}
 	void ImpactManager::Load(SKSE::SerializationInterface* serde, std::uint32_t type)
 	{
 		GetSingleton().ClearActorList();
-		if (type == GetSingleton().ImpactDataManagerRecord) {
-			logger::info("Loding on cosave ImpactDataManagerRecord...");
+		if (type == GetSingleton().ImpactManagerImpactData) {
+			logger::info("Loding on cosave ImpactManagerImpactData...");
 			std::size_t mapSize;
 			serde->ReadRecordData(&mapSize, sizeof(mapSize));
 			for (; mapSize > 0; --mapSize) {
@@ -372,6 +407,52 @@ namespace Mus {
 				}
 			}
 		}
+		else if (type == GetSingleton().ImpactManagerSpell) {
+			logger::info("Loding on cosave ImpactManagerSpell...");
+			std::size_t mapSize;
+			serde->ReadRecordData(&mapSize, sizeof(mapSize));
+			for (; mapSize > 0; --mapSize) {
+				RE::FormID ActorID;
+				serde->ReadRecordData(&ActorID, sizeof(ActorID));
+				RE::FormID newActorID;
+				RE::Actor* actor = nullptr;
+				if (!serde->ResolveFormID(ActorID, newActorID)) {
+					logger::warn("Actor ID {:X} could not be found after loading the save.", ActorID);
+				}
+				else
+					actor = skyrim_cast<RE::Actor*>(RE::TESForm::LookupByID(newActorID));
+				std::size_t spellLSize;
+				serde->ReadRecordData(&spellLSize, sizeof(spellLSize));
+				for (; spellLSize > 0; --spellLSize) {
+					RE::FormID SpellID;
+					serde->ReadRecordData(&SpellID, sizeof(SpellID));
+					RE::FormID newSpellID;
+					RE::SpellItem* Spell = nullptr;
+					if (!serde->ResolveFormID(SpellID, newSpellID)) {
+						logger::warn("Spell ID {:X} could not be found after loading the save.", SpellID);
+					}
+					else
+						Spell = skyrim_cast<RE::SpellItem*>(RE::TESForm::LookupByID(newSpellID));
+					if (actor)
+						GetSingleton().AddSpell(actor, true, Spell);
+				}
+				std::size_t spellRSize;
+				serde->ReadRecordData(&spellRSize, sizeof(spellRSize));
+				for (; spellRSize > 0; --spellRSize) {
+					RE::FormID SpellID;
+					serde->ReadRecordData(&SpellID, sizeof(SpellID));
+					RE::FormID newSpellID;
+					RE::SpellItem* Spell = nullptr;
+					if (!serde->ResolveFormID(SpellID, newSpellID)) {
+						logger::warn("Spell ID {:X} could not be found after loading the save.", SpellID);
+					}
+					else
+						Spell = skyrim_cast<RE::SpellItem*>(RE::TESForm::LookupByID(newSpellID));
+					if (actor)
+						GetSingleton().AddSpell(actor, false, Spell);
+				}
+			}
+		}
 	}
 
 	void ImpactManager::AddImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData)
@@ -405,7 +486,7 @@ namespace Mus {
 			UnRegister(actor, LeftHand, Type::Spell);
 	}
 
-	EventResult ImpactManager::ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>* hh)
+	EventResult ImpactManager::ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>*)
 	{
 		if (!evn || !evn->cause || !evn->target)
 			return EventResult::kContinue;
@@ -422,32 +503,29 @@ namespace Mus {
 			if (found->second.IsVaild())
 			{
 				found->second.ProcessHitEvent(evn);
-				logger::debug("target : {:x} {}, cause : {:x} {}", evn->target->formID, evn->target->GetName(), cause->formID, evn->cause->GetName());
+				logger::debug("target : {:x} {}, cause : {:x} {}", evn->target.get()->formID, evn->target.get()->GetName(), cause->formID, evn->cause.get()->GetName());
 			}
 		}
 
 		ImpactManager_impl idm_ = ImpactManager_impl(cause);
-		if (RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get()); target)
+		for (const auto& condition : ConditionManager::GetSingleton().GetCondition(evn))
 		{
-			for (const auto& condition : ConditionManager::GetSingleton().GetCondition(cause, target))
+			for (const auto& ids : condition.ImpactDataSets)
 			{
-				for (const auto& ids : condition.ImpactDataSets)
+				auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(ids.id, ids.pluginName));
+				if (impact)
 				{
-					auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(ids.id, ids.pluginName));
-					if (impact)
-					{
-						idm_.Register(false, impact);
-						idm_.Register(true, impact);
-					}
+					idm_.Register(false, impact);
+					idm_.Register(true, impact);
 				}
-				for (const auto& ids : condition.SpellItems)
+			}
+			for (const auto& ids : condition.SpellItems)
+			{
+				auto spell = skyrim_cast<RE::SpellItem*>(GetFormByID(ids.id, ids.pluginName));
+				if (spell)
 				{
-					auto spell = skyrim_cast<RE::SpellItem*>(GetFormByID(ids.id, ids.pluginName));
-					if (spell)
-					{
-						idm_.Register(false, spell);
-						idm_.Register(true, spell);
-					}
+					idm_.Register(false, spell);
+					idm_.Register(true, spell);
 				}
 			}
 		}

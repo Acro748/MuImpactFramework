@@ -19,14 +19,20 @@ namespace Mus {
         }
 
         //General
-        [[nodiscard]] inline std::uint8_t GetImpactMode() const noexcept {
-            return ImpactMode;
-        }
         [[nodiscard]] inline bool GetInstanceMode() const noexcept {
             return InstanceMode;
         }
         [[nodiscard]] inline std::uint8_t GetNodeDiscoveryMode() const noexcept {
             return NodeDiscoveryMode;
+        }
+        [[nodiscard]] inline std::uint8_t GetPersistMode() const noexcept {
+            return PersistMode;
+        }
+        [[nodiscard]] inline bool GetEnableMagic() const noexcept {
+            return EnableMagic;
+        }
+        [[nodiscard]] inline bool GetEnableInanimateObject() const noexcept {
+            return EnableInanimateObject;
         }
         
     private:
@@ -35,9 +41,11 @@ namespace Mus {
         spdlog::level::level_enum flushLevel{ spdlog::level::level_enum::trace };
 
         //General
-        std::uint8_t ImpactMode = 0; //0 = papyrus, 1 = instance
         bool InstanceMode = false; //0 = no instance, 1 = instance
         std::uint8_t NodeDiscoveryMode = 0; //0 = simple, 1 = realistic
+        std::uint8_t PersistMode = true;
+        bool EnableMagic = false;
+        bool EnableInanimateObject = false;
 
     public:
         // trim from start (in place)

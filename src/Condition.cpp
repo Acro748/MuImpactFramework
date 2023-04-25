@@ -11,8 +11,10 @@ namespace Mus {
 		}
 	}
 
-	const concurrency::concurrent_vector<ConditionManager::Condition> ConditionManager::GetCondition(RE::Actor* Aggressor, RE::Actor* Target)
+	const concurrency::concurrent_vector<ConditionManager::Condition> ConditionManager::GetCondition(const RE::TESHitEvent* evn)
 	{
+		RE::TESObjectREFR* Aggressor = evn->cause.get();
+		RE::TESObjectREFR* Target = evn->target.get();
 		logger::trace("Checking Conditions : Aggressor {} {:x} / Target {} {:x}", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
 		concurrency::concurrent_vector<Condition> found_condition;
 		concurrency::parallel_for_each(ConditionList.begin(), ConditionList.end(), [&](auto& Condition)
@@ -20,14 +22,19 @@ namespace Mus {
 			std::uint32_t trueCount = 0;
 			for (std::uint8_t option = 0; option < ConditionOption::OptionTotal; option++)
 			{
+				RE::TESObjectREFR* obj = nullptr;
 				RE::Actor* actor = nullptr;
 				if (option == ConditionOption::Aggressor)
-					actor = Aggressor;
+				{
+					obj = Aggressor;
+					actor = skyrim_cast<RE::Actor*>(Aggressor);
+				}
 				else if (option == ConditionOption::Target)
-					actor = Target;
-				if (!actor)
-					continue;
-				logger::debug("{} {:x} : Checking Full Conditions {} on {}...", actor->GetName(), actor->formID, Condition.originalCondition[option], magic_enum::enum_name(ConditionOption(option)).data());
+				{
+					obj = Target;
+					actor = skyrim_cast<RE::Actor*>(Target);
+				}
+				logger::debug("{} {:x} : Checking Full Conditions {} on {}...", obj->GetName(), obj->formID, Condition.originalCondition[option], magic_enum::enum_name(ConditionOption(option)).data());
 				for (auto& AND : Condition.AND[option])
 				{
 					for (auto& OR : AND)
@@ -74,10 +81,10 @@ namespace Mus {
 							isTrue = isInFaction(actor, OR.pluginName, OR.id);
 							break;
 						case ConditionType::HasKeyword:
-							isTrue = hasKeyword(actor, OR.pluginName, OR.id);
+							isTrue = hasKeyword(obj, OR.pluginName, OR.id);
 							break;
 						case ConditionType::HasKeywordEditorID:
-							isTrue = hasKeywordEditorID(actor, OR.arg);
+							isTrue = hasKeywordEditorID(obj, OR.arg);
 							break;
 						case ConditionType::HasMagicEffect:
 							isTrue = hasMagicEffect(actor, OR.pluginName, OR.id);
@@ -132,11 +139,35 @@ namespace Mus {
 							if (option == ConditionOption::Aggressor)
 								isTrue = isAttacking(actor, false);
 							break;
+						case ConditionType::IsBlocked:
+							if (option == ConditionOption::Target)
+								isTrue = isBlocked(evn->flags);
+							break;
+						case ConditionType::IsCritical:
+							if (option == ConditionOption::Target)
+								isTrue = isCritical(actor, false);
+							break;
+						case ConditionType::IsSneakCritical:
+							if (option == ConditionOption::Target)
+								isTrue = isSneakCritical(actor, false);
+							break;
+						case ConditionType::IsBash:
+							if (option == ConditionOption::Aggressor)
+								isTrue = isBash(evn->flags);
+							break;
+						case ConditionType::IsPowerAttack:
+							if (option == ConditionOption::Aggressor)
+								isTrue = isPowerAttack(evn->flags);
+							break;
+						case ConditionType::IsInanimateObject:
+							if (option == ConditionOption::Target)
+								isTrue = isInanimateObject(actor);
+							break;
 						case ConditionType::None:
 							isTrue = true;
 							break;
 						}
-						Logging(actor, option, OR, isTrue);
+						Logging(obj, option, OR, isTrue);
 
 						if (isValidCondition(isTrue, OR.NOT))
 						{
