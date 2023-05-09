@@ -62,6 +62,18 @@ namespace Mus {
                 [](int c) {return !std::isspace(c); }).base(), s.end());
         }
 
+        inline static void ltrim(std::string& s, char e)
+        {
+            s.erase(s.begin(), std::find_if(s.begin(), s.end(),
+                [&](char c) {return c == e; }) + 1);
+        }
+
+        inline static void rtrim(std::string& s, char e)
+        {
+            s.erase(std::find_if(s.rbegin(), s.rend(),
+                [&](char c) {return c == e; }).base() - 1, s.end());
+        }
+
         // trim from both ends (in place)
         inline static void trim(std::string& s)
         {

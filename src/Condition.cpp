@@ -234,7 +234,7 @@ namespace Mus {
 
 	const ConditionManager::ConditionType ConditionManager::GetConditionType(std::string line, std::string& pluginName, RE::FormID& id, std::string& arg)
 	{
-		std::vector<std::string> splittedMain = Config::splitMulti(line, "()[]{}");
+		std::vector<std::string> splittedMain = Config::splitMulti(line, "()");
 		if (splittedMain.size() == 0)
 			return ConditionType::None;
 		std::string low = lowLetter(splittedMain.at(0));
@@ -242,7 +242,9 @@ namespace Mus {
 
 		if (splittedMain.size() > 1)
 		{
-			std::vector<std::string> splitted = Config::split(splittedMain.at(1), "|");
+			Config::ltrim(line, '(');
+			Config::rtrim(line, ')');
+			std::vector<std::string> splitted = Config::split(line, "|");
 			if (splitted.size() == 1)
 			{
 				if (MultipleConfig::stringStartsWith(splitted.at(0), "0x"))

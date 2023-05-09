@@ -261,22 +261,22 @@ namespace Mus {
 		auto handNode = cause->loadedData->data3D.get()->GetObjectByName(LeftHand ? HandL : HandR);
 		if (!handNode)
 			return;
-		RE::NiAVObject* root = target->loadedData->data3D.get();
+		RE::NiAVObject* root = handNode;
 		RE::NiAVObject* obj = root;
-		//RE::NiPoint3 closePoint = handNode->world.translate;
-		//float d1 = -10000;
-		//RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-		//	float d2 = closePoint.Dot(a_object->world.translate);
-		//	if (d2 > d1)
-		//	{
-		//		obj = a_object;
-		//		d1 = d2;
-		//		/*if (d1 <= 20.0f * cause->GetScale())
-		//			return RE::BSVisit::BSVisitControl::kStop;*/
-		//	}
-		//	return RE::BSVisit::BSVisitControl::kContinue;
-		//	}
-		//);
+		RE::NiPoint3 closePoint = target->loadedData->data3D.get()->world.translate;
+		float d1 = -10000;
+		RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
+			float d2 = closePoint.Dot(a_object->world.translate);
+			if (d2 > d1)
+			{
+				obj = a_object;
+				d1 = d2;
+				/*if (d1 <= 20.0f * cause->GetScale())
+					return RE::BSVisit::BSVisitControl::kStop;*/
+			}
+			return RE::BSVisit::BSVisitControl::kContinue;
+			}
+		);
 		if (obj)
 			PlayImpactData(target, LeftHand, obj);
 	}
