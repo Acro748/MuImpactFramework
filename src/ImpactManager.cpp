@@ -249,6 +249,21 @@ namespace Mus {
 				}
 			);
 		}
+		else if (Config::GetSingleton().GetNodeDiscoveryMode() == 2)
+		{
+			RE::Actor* actor = skyrim_cast<RE::Actor*>(target);
+			RE::TESRace* race = actor ? actor->GetRace() : nullptr;
+			RE::TESNPC* npc = actor ? actor->GetActorBase() : nullptr;
+			if (!actor || !race || !npc)
+				return;
+
+			std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
+			std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
+			if (nodeNames.size() == 0)
+				return;
+
+			obj = root->GetObjectByName(nodeNames.at(nodeNames.size() - 1).first);
+		}
 		if (obj)
 			PlayImpactData(target, LeftHand, obj, hitDir);
 	}

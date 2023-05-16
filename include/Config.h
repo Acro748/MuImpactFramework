@@ -42,7 +42,7 @@ namespace Mus {
 
         //General
         bool InstanceMode = false; //0 = no instance, 1 = instance
-        std::uint8_t NodeDiscoveryMode = 0; //0 = simple, 1 = realistic
+        std::uint8_t NodeDiscoveryMode = 0; //0 = simple, 1 = realistic, 2 = center
         std::uint8_t PersistMode = true;
         bool EnableMagic = false;
         bool EnableInanimateObject = false;
