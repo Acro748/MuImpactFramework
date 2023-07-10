@@ -131,7 +131,6 @@ namespace util {
 
 #include "dirent.h"
 
-#include "nodeMap.h"
 #include "Utility.hpp"
 #include "nifUtil.h"
 #include "Condition.h"

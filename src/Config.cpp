@@ -60,14 +60,6 @@ namespace Mus {
                 {
                     InstanceMode = GetConfigSettingsBoolValue(variableValue);
                 }
-                else if (variableName == "NodeDiscoveryMode")
-                {
-                    NodeDiscoveryMode = GetConfigSettingsIntValue(variableValue);
-                }
-                else if (variableName == "Persist")
-                {
-                    PersistMode = GetConfigSettingsIntValue(variableValue);
-                }
                 else if (variableName == "EnableMagic")
                 {
                     EnableMagic = GetConfigSettingsBoolValue(variableValue);

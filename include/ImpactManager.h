@@ -4,44 +4,19 @@ namespace Mus {
 	using EventResult = RE::BSEventNotifyControl;
 	constexpr RE::NiPoint3 emptyPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 
-	class TaskPlayImpactVFX :
-		public RE::BSTEventSink<RE::BSAnimationGraphEvent>
+	class TaskPlayImpactVFX : public SKSE::detail::TaskDelegate
 	{
 	public:
-		TaskPlayImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* obj, RE::NiAVObject* node, RE::NiPoint3 direct = RE::NiPoint3(0.0f, 0.0f, 0.0f))
-			: mImpactData(impactData), mObj(obj), mNode(node), mDirect(direct) {};
+		TaskPlayImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint)
+			: mImpactData(impactData), mTarget(target), mHitPoint(hitPoint) {};
 
 		void Run();
 		void Dispose();
-	protected:
-		EventResult ProcessEvent(const RE::BSAnimationGraphEvent* evn, RE::BSTEventSource<RE::BSAnimationGraphEvent>*) override {
-			Run();
-			return EventResult::kContinue;
-		};
 	private:
 		bool AddedEvent = false;
 		RE::BGSImpactDataSet* mImpactData = nullptr;
-		RE::TESObjectREFR* mObj = nullptr;
-		RE::NiAVObject* mNode;
-		RE::NiPoint3 mDirect = RE::NiPoint3(0.0f, 0.0f, 0.0f);
-
-		enum PersistMode {
-			Once,
-			Event,
-			Visit
-		};
-		void AddGraphEvent();
-		void RemoveGraphEvent();
-
-		void VisitNodes();
-
-		static bool PlayImpactEffect(RE::BGSImpactManager* a_impactManager, RE::TESObjectREFR* a_ref, RE::BGSImpactDataSet* a_impactEffect, const char* a_nodeName,
-			RE::NiPoint3& a_pickDirection, float a_pickLength, bool a_applyNodeRotation, bool a_useNodeLocalRotation)
-		{
-			using func_t = decltype(&TaskPlayImpactVFX::PlayImpactEffect);
-			REL::Relocation<func_t> func{ RELOCATION_ID(35320, 36215) };
-			return func(a_impactManager, a_ref, a_impactEffect, a_nodeName, a_pickDirection, a_pickLength, a_applyNodeRotation, a_useNodeLocalRotation);
-		}
+		RE::TESObjectREFR* mTarget = nullptr;
+		RE::NiPoint3 mHitPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 	};
 
 	class TaskCast : public SKSE::detail::TaskDelegate
@@ -87,9 +62,9 @@ namespace Mus {
 		std::vector<RE::BGSImpactDataSet*> ImpactDataSet[2];
 		std::vector<RE::SpellItem*> Spell[2];
 
-		void LoadHitPlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDir = emptyPoint);
+		void LoadHitPlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint);
 		void LoadHitPlayImpactData(RE::Actor* cause, RE::TESObjectREFR* target, bool LeftHand);
-		void PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiAVObject* node, RE::NiPoint3 hitDir = emptyPoint, bool instance = false);
+		void PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, bool instance = Config::GetSingleton().GetInstanceMode());
 
 		void CastSpell(RE::TESObjectREFR* source, RE::TESObjectREFR* target, bool LeftHand, bool instance = false);
 

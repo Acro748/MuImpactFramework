@@ -22,12 +22,6 @@ namespace Mus {
         [[nodiscard]] inline bool GetInstanceMode() const noexcept {
             return InstanceMode;
         }
-        [[nodiscard]] inline std::uint8_t GetNodeDiscoveryMode() const noexcept {
-            return NodeDiscoveryMode;
-        }
-        [[nodiscard]] inline std::uint8_t GetPersistMode() const noexcept {
-            return PersistMode;
-        }
         [[nodiscard]] inline bool GetEnableMagic() const noexcept {
             return EnableMagic;
         }
@@ -41,9 +35,7 @@ namespace Mus {
         spdlog::level::level_enum flushLevel{ spdlog::level::level_enum::trace };
 
         //General
-        bool InstanceMode = false; //0 = no instance, 1 = instance
-        std::uint8_t NodeDiscoveryMode = 0; //0 = simple, 1 = realistic, 2 = center
-        std::uint8_t PersistMode = true;
+        bool InstanceMode = false;
         bool EnableMagic = false;
         bool EnableInanimateObject = false;
 

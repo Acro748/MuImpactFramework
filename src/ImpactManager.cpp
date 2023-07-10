@@ -3,109 +3,53 @@
 namespace Mus {
 	void TaskPlayImpactVFX::Run()
 	{
-		if (!mImpactData || !mObj || !mNode)
+		if (!mImpactData || !mTarget)
 		{
-			Dispose();
 			return;
 		}
-		auto impactManager = RE::BGSImpactManager::GetSingleton();
-		if (!impactManager)
+
+		auto materialType = RE::BGSMaterialType::GetMaterialType(RE::TES::GetSingleton()->GetLandMaterialType(mHitPoint));
+		auto found = mImpactData->impactMap.find(materialType);
+		if (found == mImpactData->impactMap.end())
 		{
-			Dispose();
+			logger::error("Couldn't get material info {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
 			return;
 		}
-		if (!PlayImpactEffect(impactManager, mObj, mImpactData, mNode->name.c_str(),
-			mDirect, 0.0f, false, false))
+		auto particle = RE::BSTempEffectParticle::Spawn(mTarget->parentCell, 0.0f, found->second->GetModel(), RE::NiMatrix3(), mHitPoint, 1.0f, 7, nullptr);
+		if (particle)
 		{
-			logger::debug("Failed to create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNode->name.c_str(), mObj->formID);
-			AddGraphEvent();
-			VisitNodes();
+			auto processLists = RE::ProcessLists::GetSingleton();
+			processLists->globalEffectsLock.Lock();
+			processLists->globalTempEffects.emplace_back(particle);
+			processLists->globalEffectsLock.Unlock();
 		}
-		else
-		{
-			logger::debug("create ImpactVFX {:x} on {} of {:x}", mImpactData->formID, mNode->name.c_str(), mObj->formID);
-			Dispose();
-		}
+
+		RE::BSSoundHandle handle1, handle2;
+		if (found->second->sound1)
+			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle1, found->second->sound1);
+		if (found->second->sound2)
+			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, found->second->sound2);
+		RE::BGSImpactManager::ImpactSoundData sound{
+			found->second,
+			&mHitPoint,
+			nullptr,
+			&handle1,
+			&handle2,
+			found->second->sound1 ? true : false,
+			found->second->sound2 ? true : false
+		};
+		RE::BGSImpactManager::GetSingleton()->PlayImpactDataSounds(sound);
+
+		logger::debug("create ImpactVFX {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
 	}
 	void TaskPlayImpactVFX::Dispose()
 	{
-		RemoveGraphEvent();
 		delete this;
 	}
-	void TaskPlayImpactVFX::AddGraphEvent()
-	{
-		if (Config::GetSingleton().GetPersistMode() != PersistMode::Event)
-			return;
-		logger::debug("Change to event mode for create ImpactVFX {:x} on {:x}", mImpactData->formID, mObj->formID);
-		RE::BSAnimationGraphManagerPtr graphManager;
-		mObj->GetAnimationGraphManager(graphManager);
-		if (!graphManager)
-			return;
-		graphManager->graphs.front()->GetEventSource<RE::BSAnimationGraphEvent>()->AddEventSink(this);
-		AddedEvent = true;
-	}
-	void TaskPlayImpactVFX::RemoveGraphEvent()
-	{
-		if (!AddedEvent)
-			return;
-		RE::BSAnimationGraphManagerPtr graphManager;
-		mObj->GetAnimationGraphManager(graphManager);
-		if (!graphManager)
-			return;
-		bool sinked = true;
-		for (const auto& animationGraph : graphManager->graphs) {
-			if (!sinked) {
-				break;
-			}
-			const auto eventSource = animationGraph->GetEventSource<RE::BSAnimationGraphEvent>();
-			for (const auto& sink : eventSource->sinks) {
-				if (sink == this) {
-					eventSource->RemoveEventSink(this);
-					sinked = false;
-					break;
-				}
-			}
-		}
-	}
-	void TaskPlayImpactVFX::VisitNodes()
-	{
-		if (Config::GetSingleton().GetPersistMode() != PersistMode::Visit)
-			return;
-		logger::debug("Change to visit mode for create ImpactVFX {:x} on {:x}", mImpactData->formID, mObj->formID);
-		auto impactManager = RE::BGSImpactManager::GetSingleton();
-		if (!impactManager)
-		{
-			Dispose();
-			return;
-		}
-		RE::NiAVObject* node = mNode;
-		bool isPlayed = false;
-		RE::BSVisit::TraverseScenegraphObjects(node, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-			isPlayed = PlayImpactEffect(impactManager, mObj, mImpactData, a_object->name.c_str(),
-				mDirect, 0.0f, false, false);
-			if (isPlayed)
-				return RE::BSVisit::BSVisitControl::kStop;
-			return RE::BSVisit::BSVisitControl::kContinue;
-		});
-		if (!isPlayed && mNode->parent)
-		{
-			node = mNode->parent;
-			while (node) {
-				if (PlayImpactEffect(impactManager, mObj, mImpactData, node->name.c_str(),
-					mDirect, 0.0f, false, false))
-					break;
-				node = node->parent;
-			}
-		}
-		Dispose();
-	}
-
+	
 	void TaskCast::Run()
 	{
-		auto vm = RE::SkyrimVM::GetSingleton();
-		if (!vm || !vm->impl)
-			return;
-		Cast(vm->impl.get(), 0, mSpell, mSource, mTarget);
+		Cast(nullptr, 0, mSpell, mSource, mTarget);
 	}
 	void TaskCast::Dispose()
 	{
@@ -169,103 +113,24 @@ namespace Mus {
 			if (hitData)
 			{
 				logger::debug("Find node by HitPosition...");
-				LoadHitPlayImpactData(evn->target.get(), LeftHand, hitData->hitPosition, RE::NiPoint3(0.0f, 0.0f, 0.0f));
+				LoadHitPlayImpactData(evn->target.get(), LeftHand, hitData->hitPosition);
 			}
 		}
-		else if (!target && Config::GetSingleton().GetEnableInanimateObject())
+		else if (!target && Config::GetSingleton().GetEnableInanimateObject()) //for inanimate object
 		{
 			logger::debug("Find node by HandNodePosition on causeActor...");
 			LoadHitPlayImpactData(cause, evn->target.get(), LeftHand);
 		}
-		else if (evn->projectile != 0 && Config::GetSingleton().GetEnableMagic() && evn->cause.get()->loadedData && evn->cause.get()->loadedData->data3D)
+		else if (evn->projectile != 0 && Config::GetSingleton().GetEnableMagic() && evn->cause.get()->loadedData && evn->cause.get()->loadedData->data3D) //for magic
 		{
 			auto root = evn->cause.get()->loadedData->data3D.get();
-			auto race = cause->GetRace();
-			RE::TESNPC* npc = cause->GetActorBase();
-			if (race && npc)
-			{
-
-				std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
-				std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
-				if (nodeNames.size() == 0)
-					return;
-				if (auto obj = root->GetObjectByName(nodeNames.at(nodeNames.size()-1).first))
-					LoadHitPlayImpactData(evn->target.get(), LeftHand, obj->world.translate, RE::NiPoint3(0.0f, 0.0f, 0.0f));
-			}
+			LoadHitPlayImpactData(cause, evn->target.get(), LeftHand);
 		}
 		CastSpell(evn->target.get(), evn->target.get(), LeftHand);
 	}
-	void ImpactManager_impl::LoadHitPlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDir)
+	void ImpactManager_impl::LoadHitPlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint)
 	{
-		if (!target || !target->loadedData || !target->loadedData->data3D)
-			return;
-		auto root = target->loadedData->data3D.get();
-		if (!root)
-			return;
-
-		RE::NiAVObject* obj = nullptr;
-		float d1 = -10000;
-
-		if (Config::GetSingleton().GetNodeDiscoveryMode() == 0)
-		{
-			RE::Actor* actor = skyrim_cast<RE::Actor*>(target);
-			RE::TESRace* race = actor ? actor->GetRace() : nullptr;
-			RE::TESNPC* npc = actor ? actor->GetActorBase() : nullptr;
-			if (!actor || !race || !npc)
-				return;
-
-			std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
-			std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
-			if (nodeNames.size() == 0)
-				return;
-
-			for (auto& nodeName : nodeNames)
-			{
-				auto obj_ = root->GetObjectByName(nodeName.first);
-				if (obj_)
-				{
-					RE::NiPoint3 node_pos = obj_->world.translate;
-					const float d2 = hitPoint.Dot(node_pos);
-					if (d1 < 0 || d2 < d1)
-					{
-						obj = obj_;
-						d1 = d2;
-					}
-				}
-			}
-		}
-		else if (Config::GetSingleton().GetNodeDiscoveryMode() == 1)
-		{
-			RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-				float d2 = hitPoint.Dot(a_object->world.translate);
-				if (d2 < d1 || d1 < 0.0f)
-				{
-					obj = a_object;
-					d1 = d2;
-					if (d1 <= 20.0f * target->GetScale())
-						return RE::BSVisit::BSVisitControl::kStop;
-				}
-				return RE::BSVisit::BSVisitControl::kContinue;
-				}
-			);
-		}
-		else if (Config::GetSingleton().GetNodeDiscoveryMode() == 2)
-		{
-			RE::Actor* actor = skyrim_cast<RE::Actor*>(target);
-			RE::TESRace* race = actor ? actor->GetRace() : nullptr;
-			RE::TESNPC* npc = actor ? actor->GetActorBase() : nullptr;
-			if (!actor || !race || !npc)
-				return;
-
-			std::string pathString = lowLetter(std::string(race->behaviorGraphs[npc->GetSex()].GetModel()));
-			std::vector<Pair> nodeNames = locationalNodeMap.count(pathString) >= 1 ? locationalNodeMap.at(pathString) : defaultNodeNames;
-			if (nodeNames.size() == 0)
-				return;
-
-			obj = root->GetObjectByName(nodeNames.at(nodeNames.size() - 1).first);
-		}
-		if (obj)
-			PlayImpactData(target, LeftHand, obj, hitDir);
+		PlayImpactData(target, LeftHand, hitPoint);
 	}
 	void ImpactManager_impl::LoadHitPlayImpactData(RE::Actor* cause, RE::TESObjectREFR* target, bool LeftHand)
 	{
@@ -286,34 +151,38 @@ namespace Mus {
 			{
 				obj = a_object;
 				d1 = d2;
-				/*if (d1 <= 20.0f * cause->GetScale())
-					return RE::BSVisit::BSVisitControl::kStop;*/
 			}
 			return RE::BSVisit::BSVisitControl::kContinue;
 			}
 		);
 		if (obj)
-			PlayImpactData(target, LeftHand, obj);
+			PlayImpactData(target, LeftHand, obj->world.translate);
 	}
-	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiAVObject* node, RE::NiPoint3 hitDir, bool instance)
+	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, bool instance)
 	{
+		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
 		for (auto impactData : ImpactDataSet[LeftHand])
 		{
-			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, node, hitDir);
-			newTask->Run();
+			TaskPlayImpactVFX* newTask = new TaskPlayImpactVFX(impactData, target, hitPoint);
+			if (!g_task || instance)
+			{
+				newTask->Run();
+				newTask->Dispose();
+			}
+			else
+			{
+				g_task->AddTask(newTask);
+			}
 		}
 	}
 	void ImpactManager_impl::CastSpell(RE::TESObjectREFR* source, RE::TESObjectREFR* target, bool LeftHand, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		if (!g_task)
-			logger::error("Couldn't get SKSETaskInterface, so switch to instance mode");
 		for (auto spell : Spell[LeftHand])
 		{
 			TaskCast* newTask = new TaskCast(spell, source, target);
-			if (!g_task || instance || Config::GetSingleton().GetInstanceMode())
+			if (!g_task || instance)
 			{
-				//logger::info("instance");
 				newTask->Run();
 				newTask->Dispose();
 			}

@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.2.0
+        VERSION 0.3.0
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -24,7 +24,6 @@ configure_file(
 
 set(headers
         include/dirent.h
-        include/nodeMap.h
         include/Utility.hpp
         include/nifUtil.h
         include/PapyrusScripts.h
@@ -34,7 +33,6 @@ set(headers
 )
 
 set(sources
-        src/nodeMap.cpp
         src/nifUtil.cpp
         src/PapyrusScripts.cpp
         src/Condition.cpp
