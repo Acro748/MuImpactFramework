@@ -603,14 +603,14 @@ namespace Mus {
 		}
 
 		std::shared_ptr<ImpactManager_impl> idm_;
-		if (auto found = conditionActorImpactData.find(cause->formID); found == conditionActorImpactData.end())
+		if (auto found = conditionActorImpactData.find(cause->formID); found != conditionActorImpactData.end())
 		{
 			idm_ = found->second;
 		}
 		else
 		{
 			idm_ = std::make_shared<ImpactManager_impl>(cause);
-			conditionActorImpactData.insert(idm_);
+			conditionActorImpactData.insert(std::make_pair(cause->formID, idm_));
 		}
 		for (const auto& condition : ConditionManager::GetSingleton().GetCondition(evn))
 		{
@@ -642,6 +642,12 @@ namespace Mus {
 			}
 		}
 		idm_->ProcessHitEvent(evn);
+
+		for (std::uint32_t i = 0; i < ImpactManager::Type::Total; i++)
+		{
+			idm_->UnRegister(true, i);
+			idm_->UnRegister(false, i);
+		}
 
 		return EventResult::kContinue;
 	}
