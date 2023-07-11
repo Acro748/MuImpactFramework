@@ -169,6 +169,22 @@ namespace Mus {
                                     isAggressor = false;
                                     isTarget = false;
                                 }
+                                else if (variableName == "VFX")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        ConditionManager::VFXInfo vfxInfo;
+                                        vfxInfo.vfxPath = value;
+                                        vfxInfo.vfxType = ConditionManager::GetVFXType(value);
+                                        condition.VFXItems.emplace_back(vfxInfo);
+                                    }
+                                    isAggressor = false;
+                                    isTarget = false;
+                                }
                                 else if (variableName == "Aggressor")
                                 {
                                     condition.originalCondition[ConditionManager::ConditionOption::Aggressor] = variableValue;
@@ -184,9 +200,9 @@ namespace Mus {
                                 else
                                 {
                                     if (isAggressor)
-                                        condition.originalCondition[ConditionManager::ConditionOption::Aggressor] += variableValue;
+                                        condition.originalCondition[ConditionManager::ConditionOption::Aggressor] += " " + variableValue;
                                     else if (isTarget)
-                                        condition.originalCondition[ConditionManager::ConditionOption::Target] += variableValue;
+                                        condition.originalCondition[ConditionManager::ConditionOption::Target] += " " + variableValue;
                                 }
                             }
                         }

@@ -19,9 +19,12 @@ namespace Mus {
 		concurrency::concurrent_vector<Condition> found_condition;
 		concurrency::parallel_for_each(ConditionList.begin(), ConditionList.end(), [&](auto& Condition)
 		{
-			std::uint32_t trueCount = 0;
+			std::uint32_t optionTrueCount = 0;
 			for (std::uint8_t option = 0; option < ConditionOption::OptionTotal; option++)
 			{
+				if (option > optionTrueCount)
+					break;
+
 				RE::TESObjectREFR* obj = nullptr;
 				RE::Actor* actor = nullptr;
 				if (option == ConditionOption::Aggressor)
@@ -35,10 +38,18 @@ namespace Mus {
 					actor = skyrim_cast<RE::Actor*>(Target);
 				}
 				logger::debug("{} {:x} : Checking Full Conditions {} on {}...", obj->GetName(), obj->formID, Condition.originalCondition[option], magic_enum::enum_name(ConditionOption(option)).data());
-				for (auto& AND : Condition.AND[option])
+				std::uint32_t trueCount = 0;
+				for (std::size_t i = 0; i < Condition.AND[option].size(); i++)
 				{
+					if (i > trueCount)
+						break;
+
+					auto& AND = Condition.AND[option].at(i);
 					for (auto& OR : AND)
 					{
+						if (OR.type != ConditionType::IsInanimateObject && isInanimateObject(actor))
+							continue;
+
 						bool isTrue = false;
 						switch (OR.type) {
 						case ConditionType::IsEquippedLeft:
@@ -176,8 +187,10 @@ namespace Mus {
 						}
 					}
 				}
+				if (trueCount == Condition.AND[option].size())
+					optionTrueCount++;
 			}
-			if (trueCount == (Condition.AND[ConditionOption::Aggressor].size() + Condition.AND[ConditionOption::Target].size()))
+			if (optionTrueCount == ConditionOption::OptionTotal)
 			{
 				logger::debug("Found Condition on Aggressor {} {:x} / Target {} {:x} ", Aggressor->GetName(), Aggressor->formID, Target->GetName(), Target->formID);
 				found_condition.push_back(Condition);
@@ -262,5 +275,59 @@ namespace Mus {
 			}
 		}
 		return type;
+	}
+
+	static RE::NiStream* NiStream_ctor(RE::NiStream* stream) {
+		using func_t = decltype(&NiStream_ctor);
+		REL::VariantID offset(68971, 70324, 0x00C9EC40);
+		REL::Relocation<func_t> func{ offset };
+		return func(stream);
+	}
+	static void NiStream_dtor(RE::NiStream* stream) {
+		using func_t = decltype(&NiStream_dtor);
+		REL::VariantID offset(68972, 70325, 0x00C9EEA0);
+		REL::Relocation<func_t> func{ offset };
+		return func(stream);
+	}
+	std::uint8_t ConditionManager::GetVFXType(std::string vfxPath)
+	{
+		std::uint8_t vfxType = TaskVFX::VFXType::Impact;
+		if (vfxPath.empty())
+			return 200;
+
+		std::string newPath = "Meshes\\" + vfxPath;
+		RE::BSResourceNiBinaryStream binaryStream(newPath.c_str());
+		if (!binaryStream.good()) {
+			logger::error("Failed load to nif file - {}", newPath.c_str());
+			return 200;
+		}
+
+		std::uint8_t niStreamMemory[sizeof(RE::NiStream)];
+		memset(niStreamMemory, 0, sizeof(RE::NiStream));
+		RE::NiStream* niStream = (RE::NiStream*)niStreamMemory;
+		NiStream_ctor(niStream);
+		niStream->Load1(&binaryStream);
+
+		for (auto& obj : niStream->topObjects)
+		{
+			RE::NiAVObject* node = netimmerse_cast<RE::NiAVObject*>(obj.get());
+			if (!node)
+				continue;
+			auto controller = node->GetControllers();
+			if (controller)
+			{
+				auto manager = controller->AsNiControllerManager();
+				if (manager)
+				{
+					vfxType = TaskVFX::VFXType::Spell;
+					break;
+				}
+			}
+		}
+
+		NiStream_dtor(niStream);
+
+		logger::info("{} => {}", vfxPath, magic_enum::enum_name(TaskVFX::VFXType(vfxType)).data());
+		return vfxType;
 	}
 }

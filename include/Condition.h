@@ -80,9 +80,15 @@ namespace Mus {
 			std::string pluginName;
 			RE::FormID id;
 		};
+		struct VFXInfo {
+			std::string vfxPath;
+			std::uint8_t vfxType;
+		};
+		static std::uint8_t GetVFXType(std::string vfxPath);
 		struct Condition {
 			std::vector<PluginsInfo> ImpactDataSets;
 			std::vector<PluginsInfo> SpellItems;
+			std::vector<VFXInfo> VFXItems;
 			std::string originalCondition[ConditionOption::OptionTotal];
 			std::vector<ConditionItemOr> AND[ConditionOption::OptionTotal];
 		};

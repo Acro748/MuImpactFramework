@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.3.0
+        VERSION 0.4.0
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
