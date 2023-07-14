@@ -3,47 +3,38 @@
 namespace Mus {
 	void ImpactManager_impl::Register(bool LeftHand, RE::BGSImpactDataSet* dataSet)
 	{
-		if (auto found = std::find(ImpactDataSet[LeftHand].begin(), ImpactDataSet[LeftHand].end(), dataSet); found != ImpactDataSet[LeftHand].end())
-			return;
-		ImpactDataSet[LeftHand].emplace_back(dataSet);
+		ImpactDataSet[LeftHand][dataSet->formID] = dataSet;
 	}
 	void ImpactManager_impl::UnRegister(bool LeftHand, RE::BGSImpactDataSet* dataSet)
 	{
-		if (auto found = std::find(ImpactDataSet[LeftHand].begin(), ImpactDataSet[LeftHand].end(), dataSet); found != ImpactDataSet[LeftHand].end())
-			ImpactDataSet[LeftHand].erase(found);
+		ImpactDataSet[LeftHand].erase(dataSet->formID);
 	}
 
 	void ImpactManager_impl::Register(bool LeftHand, RE::SpellItem* spell)
 	{
-		if (auto found = std::find(Spell[LeftHand].begin(), Spell[LeftHand].end(), spell); found != Spell[LeftHand].end())
-			return;
-		Spell[LeftHand].emplace_back(spell);
+		Spell[LeftHand][spell->formID] = spell;
 	}
 	void ImpactManager_impl::UnRegister(bool LeftHand, RE::SpellItem* spell)
 	{
-		if (auto found = std::find(Spell[LeftHand].begin(), Spell[LeftHand].end(), spell); found != Spell[LeftHand].end())
-			Spell[LeftHand].erase(found);
+		Spell[LeftHand].erase(spell->formID);
 	}
 
 	void ImpactManager_impl::Register(bool LeftHand, std::string VFXPath, std::uint8_t VFXType)
 	{
 		VFXPath = lowLetter(VFXPath);
-		if (auto found = VFX[LeftHand].find(VFXPath); found != VFX[LeftHand].end())
-			return;
-		VFX[LeftHand].emplace(VFXPath, VFXType);
+		VFX[LeftHand][VFXPath] = VFXType;
 	}
 	void ImpactManager_impl::UnRegister(bool LeftHand, std::string VFXPath)
 	{
 		VFXPath = lowLetter(VFXPath);
-		if (auto found = VFX[LeftHand].find(VFXPath); found != VFX[LeftHand].end())
-			VFX[LeftHand].erase(found);
+		VFX[LeftHand].erase(VFXPath);
 	}
 
 	void ImpactManager_impl::Register(bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
 	{
 		if (auto found = std::find(Sound[LeftHand][SecondSound].begin(), Sound[LeftHand][SecondSound].end(), sound); found != Sound[LeftHand][SecondSound].end())
 			return;
-		Sound[LeftHand][SecondSound].emplace_back(sound);
+		Sound[LeftHand][SecondSound].push_back(sound);
 	}
 	void ImpactManager_impl::UnRegister(bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
 	{
@@ -53,14 +44,11 @@ namespace Mus {
 
 	void ImpactManager_impl::Register(bool LeftHand, RE::TESEffectShader* effectShader)
 	{
-		if (auto found = std::find(EffectShader[LeftHand].begin(), EffectShader[LeftHand].end(), effectShader); found != EffectShader[LeftHand].end())
-			return;
-		EffectShader[LeftHand].emplace_back(effectShader);
+		EffectShader[LeftHand][effectShader->formID] = effectShader;
 	}
 	void ImpactManager_impl::UnRegister(bool LeftHand, RE::TESEffectShader* effectShader)
 	{
-		if (auto found = std::find(EffectShader[LeftHand].begin(), EffectShader[LeftHand].end(), effectShader); found != EffectShader[LeftHand].end())
-			EffectShader[LeftHand].erase(found);
+		EffectShader[LeftHand].erase(effectShader->formID);
 	}
 
 	void ImpactManager_impl::UnRegister(bool LeftHand, uint32_t type)
@@ -156,9 +144,9 @@ namespace Mus {
 	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto impactData : ImpactDataSet[LeftHand])
+		for (const auto& impactData : ImpactDataSet[LeftHand])
 		{
-			TaskImpactVFX* newTask = new TaskImpactVFX(impactData, aggressor, target, hitPoint, hitDirection, targetObj);
+			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPoint, hitDirection, targetObj);
 			if (!g_task || instance)
 			{
 				newTask->Run();
@@ -174,9 +162,9 @@ namespace Mus {
 	void ImpactManager_impl::CastSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto spell : Spell[LeftHand])
+		for (const auto& spell : Spell[LeftHand])
 		{
-			TaskCastVFX* newTask = new TaskCastVFX(spell, aggressor, target);
+			TaskCastVFX* newTask = new TaskCastVFX(spell.second, aggressor, target);
 			if (!g_task || instance)
 			{
 				newTask->Run();
@@ -192,7 +180,7 @@ namespace Mus {
 	void ImpactManager_impl::PlayVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto VFX : VFX[LeftHand])
+		for (const auto& VFX : VFX[LeftHand])
 		{
 			TaskVFX* newTask = new TaskVFX(VFX.first, aggressor, target, hitPoint, hitDirection, VFX.second, targetObj);
 			if (!g_task || instance)
@@ -236,9 +224,9 @@ namespace Mus {
 	void ImpactManager_impl::PlayEffectShader(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto effectShader : EffectShader[LeftHand])
+		for (const auto& effectShader : EffectShader[LeftHand])
 		{
-			TaskEffectShader* newTask = new TaskEffectShader(aggressor, target, effectShader);
+			TaskEffectShader* newTask = new TaskEffectShader(aggressor, target, effectShader.second);
 			if (!g_task || instance)
 			{
 				newTask->Run();

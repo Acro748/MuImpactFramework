@@ -23,21 +23,21 @@ namespace Mus {
 	class TaskTempFormManager
 	{
 	public:
-		[[nodiscard]] static TaskTempFormManager& GetSingleton() {
+		[[nodiscard]] static TaskTempFormManager* GetSingleton() {
 			static TaskTempFormManager instance;
-			return instance;
+			return &instance;
 		};
 
 		RE::BGSImpactData* GetImpactDataTempForm();
 		RE::BGSArtObject* GetArtObjectTempForm();
-		RE::TESEffectShader* GetEffectShaderTempForm();
-
 	private:
 		std::uint32_t ImpactDataNum = 0;
 		std::uint32_t ArtObjectNum = 0;
 
 		template <typename T>
 		T* GetNewForm();
+
+		std::mutex m_lock;
 	};
 
 	class TaskVFX : public SKSE::detail::TaskDelegate

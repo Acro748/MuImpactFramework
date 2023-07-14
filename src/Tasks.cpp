@@ -84,6 +84,7 @@ namespace Mus {
 
 	RE::BGSImpactData* TaskTempFormManager::GetImpactDataTempForm()
 	{
+		std::lock_guard<std::mutex> locker(m_lock);
 		static std::vector<RE::BGSImpactData*> impactDataList;
 		if (impactDataList.size() == 0)
 		{
@@ -104,6 +105,7 @@ namespace Mus {
 	}
 	RE::BGSArtObject* TaskTempFormManager::GetArtObjectTempForm()
 	{
+		std::lock_guard<std::mutex> locker(m_lock);
 		static std::vector<RE::BGSArtObject*> artObjectList;
 		if (artObjectList.size() == 0)
 		{
@@ -171,7 +173,7 @@ namespace Mus {
 	{
 		if (!mTarget)
 			return false;
-		auto art = TaskTempFormManager::GetSingleton().GetArtObjectTempForm();
+		auto art = TaskTempFormManager::GetSingleton()->GetArtObjectTempForm();
 		if (!art)
 			return false;
 		art->SetModel(mVFXPath.c_str());
@@ -202,7 +204,7 @@ namespace Mus {
 		if (mSound2)
 			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, mSound2);
 
-		RE::BGSImpactData* impactData = TaskTempFormManager::GetSingleton().GetImpactDataTempForm();
+		RE::BGSImpactData* impactData = TaskTempFormManager::GetSingleton()->GetImpactDataTempForm();
 		impactData->sound1 = mSound1;
 		impactData->sound2 = mSound2;
 		RE::BGSImpactManager::ImpactSoundData sound{

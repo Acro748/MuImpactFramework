@@ -73,6 +73,12 @@ namespace Mus {
         return result ? result : nullptr;
     }
 
+    template <typename T>
+    inline T GetFormByID(RE::FormID id, std::string_view modname)
+    {
+        return skyrim_cast<T>(GetFormByID(id, modname));
+    }
+
     inline bool IsThereTheESP(std::string_view modname)
     {
         RE::TESDataHandler* DataHandler = RE::TESDataHandler::GetSingleton();

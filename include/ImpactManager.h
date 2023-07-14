@@ -27,12 +27,13 @@ namespace Mus {
 
 		enum Type : std::uint32_t {
 			None = 0,
-			ImpactDataSet = 1,
+			ImpactDataSet = 1 << 0,
 			Spell = 1 << 1,
 			VFX = 1 << 2,
 			Sound = 1 << 3,
 			EffectShader = 1 << 4,
-			Total
+
+			All = ImpactDataSet + Spell + VFX + Sound + EffectShader
 		};
 
 		void AddImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData);

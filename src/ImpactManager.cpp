@@ -13,15 +13,15 @@ namespace Mus {
 				auto datasetL = actorMap.second.GetImpactDataSet(true);
 				auto datasetSizeL = datasetL.size();
 				serde->WriteRecordData(&datasetSizeL, sizeof(datasetSizeL));
-				for (auto& data : datasetL) {
-					auto dataid = data->formID;
+				for (const auto& data : datasetL) {
+					auto dataid = data.second->formID;
 					serde->WriteRecordData(&dataid, sizeof(dataid));
 				}
 				auto datasetR = actorMap.second.GetImpactDataSet(false);
 				auto datasetSizeR = datasetR.size();
 				serde->WriteRecordData(&datasetSizeR, sizeof(datasetSizeR));
-				for (auto& data : datasetR) {
-					auto dataid = data->formID;
+				for (const auto& data : datasetR) {
+					auto dataid = data.second->formID;
 					serde->WriteRecordData(&dataid, sizeof(dataid));
 				}
 			}
@@ -36,15 +36,15 @@ namespace Mus {
 				auto spellL = actorMap.second.GetSpell(true);
 				auto spellSizeL = spellL.size();
 				serde->WriteRecordData(&spellSizeL, sizeof(spellSizeL));
-				for (auto& spell : spellL) {
-					auto spellid = spell->formID;
+				for (const auto& spell : spellL) {
+					auto spellid = spell.second->formID;
 					serde->WriteRecordData(&spellid, sizeof(spellid));
 				}
 				auto spellR = actorMap.second.GetSpell(false);
 				auto spellSizeR = spellR.size();
 				serde->WriteRecordData(&spellSizeR, sizeof(spellSizeR));
-				for (auto& spell : spellR) {
-					auto spellid = spell->formID;
+				for (const auto& spell : spellR) {
+					auto spellid = spell.second->formID;
 					serde->WriteRecordData(&spellid, sizeof(spellid));
 				}
 			}
@@ -59,7 +59,7 @@ namespace Mus {
 				auto VFXL = actorMap.second.GetVFX(true);
 				auto VFXSizeL = VFXL.size();
 				serde->WriteRecordData(&VFXSizeL, sizeof(VFXSizeL));
-				for (auto& VFX : VFXL) {
+				for (const auto& VFX : VFXL) {
 					auto VFXSize = VFX.first.size();
 					serde->WriteRecordData(&VFXSize, sizeof(VFXSize));
 					for (auto& c : VFX.first)
@@ -72,7 +72,7 @@ namespace Mus {
 				auto VFXR = actorMap.second.GetVFX(false);
 				auto VFXSizeR = VFXR.size();
 				serde->WriteRecordData(&VFXSizeR, sizeof(VFXSizeR));
-				for (auto& VFX : VFXR) {
+				for (const auto& VFX : VFXR) {
 					auto VFXSize = VFX.first.size();
 					serde->WriteRecordData(&VFXSize, sizeof(VFXSize));
 					for (auto& c : VFX.first)
@@ -94,28 +94,28 @@ namespace Mus {
 				auto Sound1L = actorMap.second.GetSound(true, false);
 				auto Sound1SizeL = Sound1L.size();
 				serde->WriteRecordData(&Sound1SizeL, sizeof(Sound1SizeL));
-				for (auto& sound : Sound1L) {
+				for (const auto& sound : Sound1L) {
 					auto soundid = sound->formID;
 					serde->WriteRecordData(&soundid, sizeof(soundid));
 				}
 				auto Sound2L = actorMap.second.GetSound(true, true);
 				auto Sound2SizeL = Sound2L.size();
 				serde->WriteRecordData(&Sound2SizeL, sizeof(Sound2SizeL));
-				for (auto& sound : Sound2L) {
+				for (const auto& sound : Sound2L) {
 					auto soundid = sound->formID;
 					serde->WriteRecordData(&soundid, sizeof(soundid));
 				}
 				auto Sound1R = actorMap.second.GetSound(false, false);
 				auto Sound1SizeR = Sound1R.size();
 				serde->WriteRecordData(&Sound1SizeR, sizeof(Sound1SizeR));
-				for (auto& sound : Sound1R) {
+				for (const auto& sound : Sound1R) {
 					auto soundid = sound->formID;
 					serde->WriteRecordData(&soundid, sizeof(soundid));
 				}
 				auto Sound2R = actorMap.second.GetSound(false, true);
 				auto Sound2SizeR = Sound2R.size();
 				serde->WriteRecordData(&Sound2SizeR, sizeof(Sound2SizeR));
-				for (auto& sound : Sound2R) {
+				for (const auto& sound : Sound2R) {
 					auto soundid = sound->formID;
 					serde->WriteRecordData(&soundid, sizeof(soundid));
 				}
@@ -131,15 +131,15 @@ namespace Mus {
 				auto effectShaderL = actorMap.second.GetEffectShader(true);
 				auto effectShaderSizeL = effectShaderL.size();
 				serde->WriteRecordData(&effectShaderSizeL, sizeof(effectShaderSizeL));
-				for (auto& effectShader : effectShaderL) {
-					auto effectShaderid = effectShader->formID;
+				for (const auto& effectShader : effectShaderL) {
+					auto effectShaderid = effectShader.second->formID;
 					serde->WriteRecordData(&effectShaderid, sizeof(effectShaderid));
 				}
 				auto effectShaderR = actorMap.second.GetEffectShader(false);
 				auto effectShaderSizeR = effectShaderR.size();
 				serde->WriteRecordData(&effectShaderSizeR, sizeof(effectShaderSizeR));
-				for (auto& effectShader : effectShaderR) {
-					auto effectShaderid = effectShader->formID;
+				for (const auto& effectShader : effectShaderR) {
+					auto effectShaderid = effectShader.second->formID;
 					serde->WriteRecordData(&effectShaderid, sizeof(effectShaderid));
 				}
 			}
@@ -526,65 +526,54 @@ namespace Mus {
 		{
 			for (const auto& item : condition.ImpactDataSets)
 			{
-				auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(item.id, item.pluginName));
-				if (impact)
+				if (item)
 				{
-					conditionActorImpactData.Register(false, impact);
-					conditionActorImpactData.Register(true, impact);
+					conditionActorImpactData.Register(false, item);
+					conditionActorImpactData.Register(true, item);
 				}
 			}
 			for (const auto& item : condition.SpellItems)
 			{
-				auto spell = skyrim_cast<RE::SpellItem*>(GetFormByID(item.id, item.pluginName));
-				if (spell)
+				if (item)
 				{
-					conditionActorImpactData.Register(false, spell);
-					conditionActorImpactData.Register(true, spell);
+					conditionActorImpactData.Register(false, item);
+					conditionActorImpactData.Register(true, item);
 				}
 			}
 			for (const auto& item : condition.VFXItems)
 			{
-				if (!item.vfxPath.empty())
-				{
-					conditionActorImpactData.Register(false, item.vfxPath, item.vfxType);
-					conditionActorImpactData.Register(true, item.vfxPath, item.vfxType);
-				}
+				conditionActorImpactData.Register(false, item.vfxPath, item.vfxType);
+				conditionActorImpactData.Register(true, item.vfxPath, item.vfxType);
 			}
 			for (const auto& item : condition.SoundDescriptor1Items)
 			{
-				auto sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(GetFormByID(item.id, item.pluginName));
-				if (sound)
+				if (item)
 				{
-					conditionActorImpactData.Register(false, sound, false);
-					conditionActorImpactData.Register(true, sound, false);
+					conditionActorImpactData.Register(false, item, false);
+					conditionActorImpactData.Register(true, item, false);
 				}
 			}
 			for (const auto& item : condition.SoundDescriptor2Items)
 			{
-				auto sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(GetFormByID(item.id, item.pluginName));
-				if (sound)
+				if (item)
 				{
-					conditionActorImpactData.Register(false, sound, true);
-					conditionActorImpactData.Register(true, sound, true);
+					conditionActorImpactData.Register(false, item, true);
+					conditionActorImpactData.Register(true, item, true);
 				}
 			}
 			for (const auto& item : condition.EffectShaderItems)
 			{
-				auto effectShader = skyrim_cast<RE::TESEffectShader*>(GetFormByID(item.id, item.pluginName));
-				if (effectShader)
+				if (item)
 				{
-					conditionActorImpactData.Register(false, effectShader);
-					conditionActorImpactData.Register(true, effectShader);
+					conditionActorImpactData.Register(false, item);
+					conditionActorImpactData.Register(true, item);
 				}
 			}
 		}
 		conditionActorImpactData.ProcessHitEvent(evn);
 
-		for (std::uint32_t i = 0; i < ImpactManager::Type::Total; i++)
-		{
-			conditionActorImpactData.UnRegister(true, i);
-			conditionActorImpactData.UnRegister(false, i);
-		}
+		conditionActorImpactData.UnRegister(true, Type::All);
+		conditionActorImpactData.UnRegister(false, Type::All);
 	
 		//TimeLogger(true);
 

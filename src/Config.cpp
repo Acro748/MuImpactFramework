@@ -133,20 +133,23 @@ namespace Mus {
                                     for (auto& value : values)
                                     {
                                         trim(value);
-                                        ConditionManager::PluginsInfo pluginInfo;
+                                        RE::FormID id;
+                                        std::string pluginname;
                                         auto plugins = split(value, "|");
                                         if (plugins.size() == 1)
                                         {
-                                            pluginInfo.id = getHex(plugins.at(0));
+                                            id = getHex(plugins.at(0));
                                         }
                                         else if (plugins.size() == 2)
                                         {
-                                            pluginInfo.pluginName = plugins.at(0);
-                                            pluginInfo.id = getHex(plugins.at(1));
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
                                         }
                                         else
                                             continue;
-                                        condition.ImpactDataSets.emplace_back(pluginInfo);
+                                        auto form = GetFormByID<RE::BGSImpactDataSet*>(id, pluginname);
+                                        if (form)
+                                            condition.ImpactDataSets.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;
@@ -159,20 +162,23 @@ namespace Mus {
                                     for (auto& value : values)
                                     {
                                         trim(value);
-                                        ConditionManager::PluginsInfo pluginInfo;
+                                        RE::FormID id;
+                                        std::string pluginname;
                                         auto plugins = split(value, "|");
                                         if (plugins.size() == 1)
                                         {
-                                            pluginInfo.id = getHex(plugins.at(0));
+                                            id = getHex(plugins.at(0));
                                         }
                                         else if (plugins.size() == 2)
                                         {
-                                            pluginInfo.pluginName = plugins.at(0);
-                                            pluginInfo.id = getHex(plugins.at(1));
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
                                         }
                                         else
                                             continue;
-                                        condition.SpellItems.emplace_back(pluginInfo);
+                                        auto form = GetFormByID<RE::SpellItem*>(id, pluginname);
+                                        if (form)
+                                            condition.SpellItems.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;
@@ -201,20 +207,23 @@ namespace Mus {
                                     for (auto& value : values)
                                     {
                                         trim(value);
-                                        ConditionManager::PluginsInfo pluginInfo;
+                                        RE::FormID id;
+                                        std::string pluginname;
                                         auto plugins = split(value, "|");
                                         if (plugins.size() == 1)
                                         {
-                                            pluginInfo.id = getHex(plugins.at(0));
+                                            id = getHex(plugins.at(0));
                                         }
                                         else if (plugins.size() == 2)
                                         {
-                                            pluginInfo.pluginName = plugins.at(0);
-                                            pluginInfo.id = getHex(plugins.at(1));
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
                                         }
                                         else
                                             continue;
-                                        condition.SoundDescriptor1Items.emplace_back(pluginInfo);
+                                        auto form = GetFormByID<RE::BGSSoundDescriptorForm*>(id, pluginname);
+                                        if (form)
+                                            condition.SoundDescriptor1Items.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;
@@ -227,20 +236,23 @@ namespace Mus {
                                     for (auto& value : values)
                                     {
                                         trim(value);
-                                        ConditionManager::PluginsInfo pluginInfo;
+                                        RE::FormID id;
+                                        std::string pluginname;
                                         auto plugins = split(value, "|");
                                         if (plugins.size() == 1)
                                         {
-                                            pluginInfo.id = getHex(plugins.at(0));
+                                            id = getHex(plugins.at(0));
                                         }
                                         else if (plugins.size() == 2)
                                         {
-                                            pluginInfo.pluginName = plugins.at(0);
-                                            pluginInfo.id = getHex(plugins.at(1));
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
                                         }
                                         else
                                             continue;
-                                        condition.SoundDescriptor2Items.emplace_back(pluginInfo);
+                                        auto form = GetFormByID<RE::BGSSoundDescriptorForm*>(id, pluginname);
+                                        if (form)
+                                            condition.SoundDescriptor2Items.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;
@@ -253,20 +265,23 @@ namespace Mus {
                                     for (auto& value : values)
                                     {
                                         trim(value);
-                                        ConditionManager::PluginsInfo pluginInfo;
+                                        RE::FormID id;
+                                        std::string pluginname;
                                         auto plugins = split(value, "|");
                                         if (plugins.size() == 1)
                                         {
-                                            pluginInfo.id = getHex(plugins.at(0));
+                                            id = getHex(plugins.at(0));
                                         }
                                         else if (plugins.size() == 2)
                                         {
-                                            pluginInfo.pluginName = plugins.at(0);
-                                            pluginInfo.id = getHex(plugins.at(1));
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
                                         }
                                         else
                                             continue;
-                                        condition.EffectShaderItems.emplace_back(pluginInfo);
+                                        auto form = GetFormByID<RE::TESEffectShader*>(id, pluginname);
+                                        if (form)
+                                            condition.EffectShaderItems.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;

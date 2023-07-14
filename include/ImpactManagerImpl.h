@@ -28,10 +28,10 @@ namespace Mus {
 
 		void ProcessHitEvent(const RE::TESHitEvent* evn);
 
-		const std::vector<RE::BGSImpactDataSet*> GetImpactDataSet(bool LeftHand) {
+		const std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> GetImpactDataSet(bool LeftHand) {
 			return ImpactDataSet[LeftHand];
 		};
-		const std::vector<RE::SpellItem*> GetSpell(bool LeftHand) {
+		const std::unordered_map<RE::FormID, RE::SpellItem*> GetSpell(bool LeftHand) {
 			return Spell[LeftHand];
 		};
 		const std::unordered_map<std::string, std::uint8_t> GetVFX(bool LeftHand) {
@@ -40,15 +40,15 @@ namespace Mus {
 		const std::vector<RE::BGSSoundDescriptorForm*> GetSound(bool LeftHand, bool SecondSound = false) {
 			return Sound[LeftHand][SecondSound];
 		};
-		const std::vector<RE::TESEffectShader*> GetEffectShader(bool LeftHand) {
+		const std::unordered_map<RE::FormID, RE::TESEffectShader*> GetEffectShader(bool LeftHand) {
 			return EffectShader[LeftHand];
 		};
 	private:
-		std::vector<RE::BGSImpactDataSet*> ImpactDataSet[2];
-		std::vector<RE::SpellItem*> Spell[2];
+		std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> ImpactDataSet[2];
+		std::unordered_map<RE::FormID, RE::SpellItem*> Spell[2];
 		std::unordered_map<std::string, std::uint8_t> VFX[2];
 		std::vector<RE::BGSSoundDescriptorForm*> Sound[2][2];
-		std::vector<RE::TESEffectShader*> EffectShader[2];
+		std::unordered_map<RE::FormID, RE::TESEffectShader*> EffectShader[2];
 
 		void LoadHitPlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection);
 		void LoadHitPlayImpactData(RE::Actor* aggressor, RE::TESObjectREFR* target, bool LeftHand);

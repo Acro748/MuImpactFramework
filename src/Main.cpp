@@ -133,18 +133,37 @@ namespace {
         log::info("Building hook...");
     }
 
+    class ConfigLoader : //make late load in case that create a virtual form in other mods
+        public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
+    public:
+        [[nodiscard]] static ConfigLoader& GetSingleton() {
+            static ConfigLoader instance;
+            return instance;
+        }
+
+    protected:
+        EventResult ProcessEvent(const RE::MenuOpenCloseEvent* evn, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
+            if (!evn || evn->menuName.empty())
+                return EventResult::kContinue;
+
+            if (!evn->opening && IsSameString(evn->menuName.c_str(), "Main Menu"))
+            {
+                static_cast<MultipleConfig>(Config::GetSingleton()).LoadSetupConfig();
+                return EventResult::kStop;
+            }
+            return EventResult::kContinue;
+        };
+    };
+
     void kDataloadedFunction()
     {
-        static_cast<MultipleConfig>(Config::GetSingleton()).LoadSetupConfig();
+        if (const auto Menu = RE::UI::GetSingleton(); Menu) {
+            Menu->AddEventSink<RE::MenuOpenCloseEvent>(&ConfigLoader::GetSingleton());
+        }
         if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
-            logger::info("Register GameEvents...");
             EventHolder->AddEventSink<RE::TESHitEvent>(&ImpactManager::GetSingleton());
         }
-    }
-
-    void kNewGameFunction()
-    {
-
+        ConditionManager::GetSingleton().InitialConditionMap();
     }
 
     void InitializeMessaging() 
@@ -168,7 +187,6 @@ namespace {
 
                 // Skyrim game events.
                 case MessagingInterface::kNewGame: // Player starts a new game from main menu.
-                    kNewGameFunction();
                     break;
                 case MessagingInterface::kPreLoadGame: // Player selected a game to load, but it hasn't loaded yet.
                     // Data will be the name of the loaded save.
