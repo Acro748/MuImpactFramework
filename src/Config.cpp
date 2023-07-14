@@ -68,6 +68,14 @@ namespace Mus {
                 {
                     EnableInanimateObject = GetConfigSettingsBoolValue(variableValue);
                 }
+                else if (variableName == "ArtObjectLimit")
+                {
+                    ArtObjectVFXLimit = GetConfigSettingsUintValue(variableValue);
+                }
+                else if (variableName == "SoundLimit")
+                {
+                    SoundLimit = GetConfigSettingsUintValue(variableValue);
+                }
             }
         }
         logger::info("Config loaded done");
@@ -181,6 +189,84 @@ namespace Mus {
                                         vfxInfo.vfxPath = value;
                                         vfxInfo.vfxType = ConditionManager::GetVFXType(value);
                                         condition.VFXItems.emplace_back(vfxInfo);
+                                    }
+                                    isAggressor = false;
+                                    isTarget = false;
+                                }
+                                else if (variableName == "Sound1")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        ConditionManager::PluginsInfo pluginInfo;
+                                        auto plugins = split(value, "|");
+                                        if (plugins.size() == 1)
+                                        {
+                                            pluginInfo.id = getHex(plugins.at(0));
+                                        }
+                                        else if (plugins.size() == 2)
+                                        {
+                                            pluginInfo.pluginName = plugins.at(0);
+                                            pluginInfo.id = getHex(plugins.at(1));
+                                        }
+                                        else
+                                            continue;
+                                        condition.SoundDescriptor1Items.emplace_back(pluginInfo);
+                                    }
+                                    isAggressor = false;
+                                    isTarget = false;
+                                }
+                                else if (variableName == "Sound2")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        ConditionManager::PluginsInfo pluginInfo;
+                                        auto plugins = split(value, "|");
+                                        if (plugins.size() == 1)
+                                        {
+                                            pluginInfo.id = getHex(plugins.at(0));
+                                        }
+                                        else if (plugins.size() == 2)
+                                        {
+                                            pluginInfo.pluginName = plugins.at(0);
+                                            pluginInfo.id = getHex(plugins.at(1));
+                                        }
+                                        else
+                                            continue;
+                                        condition.SoundDescriptor2Items.emplace_back(pluginInfo);
+                                    }
+                                    isAggressor = false;
+                                    isTarget = false;
+                                }
+                                else if (variableName == "EffectShader")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        ConditionManager::PluginsInfo pluginInfo;
+                                        auto plugins = split(value, "|");
+                                        if (plugins.size() == 1)
+                                        {
+                                            pluginInfo.id = getHex(plugins.at(0));
+                                        }
+                                        else if (plugins.size() == 2)
+                                        {
+                                            pluginInfo.pluginName = plugins.at(0);
+                                            pluginInfo.id = getHex(plugins.at(1));
+                                        }
+                                        else
+                                            continue;
+                                        condition.EffectShaderItems.emplace_back(pluginInfo);
                                     }
                                     isAggressor = false;
                                     isTarget = false;

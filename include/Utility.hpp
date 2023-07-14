@@ -47,35 +47,29 @@ namespace Mus {
 
     inline RE::TESForm* GetFormByID(RE::FormID id, std::string_view modname)
     {
-        if (modname != "")
+        if (!modname.empty())
         {
             RE::TESDataHandler* DataHandler = RE::TESDataHandler::GetSingleton();
             if (!DataHandler)
                 return nullptr;
 
-            //auto esp = DataHandler->LookupModByName(modname);
-            //if (!esp)
-            //    return nullptr;
+            if (REL::Module::IsVR())
+            {
+                auto esp = DataHandler->LookupModByName(modname);
+                if (!esp)
+                    return nullptr;
 
-            //RE::FormID index = 0;
-
-            //if (REL::Module::IsVR() || (!REL::Module::IsVR() && !esp->IsLight()))
-            //{
-            //    RE::FormID Compileindex = esp->GetCompileIndex();
-            //    index = (Compileindex << 24);
-            //}
-            //else
-            //{
-            //    RE::FormID Compileindex = esp->GetSmallFileCompileIndex();
-            //    index = ((0xFE000 | Compileindex) << 24);
-            //}
-
-            //id += index;
-
-            id = DataHandler->LookupFormID(id, modname);
+                RE::FormID index = 0;
+                RE::FormID Compileindex = esp->GetCompileIndex();
+                index = (Compileindex << 24);
+                id += index;
+            }
+            else
+            {
+                id = DataHandler->LookupFormID(id, modname);
+            }
         }
-        RE::TESForm* result = id ? RE::TESForm::LookupByID(id) : nullptr;
-
+        RE::TESForm* result = RE::TESForm::LookupByID(id);
         return result ? result : nullptr;
     }
 
@@ -232,5 +226,28 @@ namespace Mus {
     inline bool IsArmorSlot(RE::TESObjectARMO* thisArmor, RE::BIPED_MODEL::BipedObjectSlot slotMask)
     {
         return thisArmor->bipedModelData.bipedObjectSlots.underlying() & std::to_underlying(slotMask);
+    }
+
+    inline void TimeLogger(bool isEnd = false, bool logging = true)
+    {
+        if (!logging)
+            return;
+        static LARGE_INTEGER startingTime, endingTime, elapsedMicroseconds, frequency;
+        static std::uint32_t count = 0;
+        QueryPerformanceFrequency(&frequency);
+        if (!isEnd)
+            QueryPerformanceCounter(&startingTime);
+        else
+        {
+            QueryPerformanceCounter(&endingTime);
+            elapsedMicroseconds.QuadPart = endingTime.QuadPart - startingTime.QuadPart;
+            elapsedMicroseconds.QuadPart *= 1000000000LL;
+            elapsedMicroseconds.QuadPart /= frequency.QuadPart;
+            float us = (float)elapsedMicroseconds.QuadPart * 0.001f;
+            float ms = us * 0.001f;
+            float s = ms * 0.001f;
+            logger::info("{}. {}ns / {:.6f}us / {:.6f}ms / {:.6f}s", count, elapsedMicroseconds.QuadPart, us, ms, s);
+            count++;
+        }
     }
 }

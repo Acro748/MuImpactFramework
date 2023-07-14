@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.4.0
+        VERSION 0.5.0
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -29,6 +29,8 @@ set(headers
         include/PapyrusScripts.h
         include/Condition.h
         include/Config.h
+        include/Tasks.h
+        include/ImpactManagerImpl.h
         include/ImpactManager.h
 )
 
@@ -37,6 +39,8 @@ set(sources
         src/PapyrusScripts.cpp
         src/Condition.cpp
         src/Config.cpp
+        src/Tasks.cpp
+        src/ImpactManagerImpl.cpp
         src/ImpactManager.cpp
         src/Main.cpp
 

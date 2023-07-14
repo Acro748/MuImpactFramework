@@ -1,307 +1,6 @@
 #include "ImpactManager.h"
 
 namespace Mus {
-	void TaskImpactVFX::Run()
-	{
-		if (!mImpactData || !mTarget)
-			return;
-		
-		auto materialType = RE::BGSMaterialType::GetMaterialType(RE::TES::GetSingleton()->GetLandMaterialType(mHitPoint));
-		auto found = mImpactData->impactMap.find(materialType);
-		if (found == mImpactData->impactMap.end())
-		{
-			logger::error("couldn't get material info {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-			materialType = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
-			found = mImpactData->impactMap.find(materialType);
-			if (found == mImpactData->impactMap.end())
-			{
-				found = mImpactData->impactMap.begin();
-			}
-		}
-		
-		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, found->second->GetModel(), RE::NiMatrix3(), mHitPoint, 1.0f, 7, mTargetObj);
-		if (particle)
-		{
-			auto processLists = RE::ProcessLists::GetSingleton();
-			processLists->globalEffectsLock.Lock();
-			processLists->globalTempEffects.emplace_back(particle);
-			processLists->globalEffectsLock.Unlock();
-			logger::debug("create ImpactVFX {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-		}
-		else
-		{
-			logger::debug("couldn't create ImpactVFX {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-			return;
-		}
-
-		RE::BSSoundHandle handle1, handle2;
-		if (found->second->sound1)
-			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle1, found->second->sound1);
-		if (found->second->sound2)
-			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, found->second->sound2);
-		RE::BGSImpactManager::ImpactSoundData sound{
-			found->second,
-			&mHitPoint,
-			nullptr,
-			found->second->sound1 ? &handle1 : nullptr,
-			found->second->sound2 ? &handle2 : nullptr,
-			found->second->sound1 ? true : false,
-			found->second->sound2 ? true : false
-		};
-		RE::BGSImpactManager::GetSingleton()->PlayImpactDataSounds(sound);
-	}
-	void TaskImpactVFX::Dispose()
-	{
-		delete this;
-	}
-	
-	void TaskVFX::Run()
-	{
-		if (mVFXPath.empty())
-			return;
-
-		bool isCreated = false;
-		switch (mVFXType) {
-		case VFXType::Impact:
-			isCreated = CreateImpactVFX();
-			break;
-		case VFXType::Spell:
-			isCreated = CreateArtVFX();
-			break;
-		}
-
-		if (isCreated)
-			logger::debug("create VFX {} on ({}, {}, {}) for {:x} {}", mVFXPath, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-		else
-			logger::debug("couldn't VFX {} on ({}, {}, {}) for {:x} {}", mVFXPath, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-	}
-	void TaskVFX::Dispose()
-	{
-		delete this;
-	}
-	bool TaskVFX::CreateImpactVFX()
-	{
-		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, mVFXPath.c_str(), RE::NiMatrix3(), mHitPoint, 1.0f, 7, mTargetObj);
-		if (particle)
-		{
-			auto processLists = RE::ProcessLists::GetSingleton();
-			if (processLists)
-			{
-				RE::BSSpinLockGuard locker(processLists->globalEffectsLock);
-				processLists->globalTempEffects.emplace_back(particle);
-				return true;
-			}
-		}
-		return false;
-	}
-	bool TaskVFX::CreateArtVFX()
-	{
-		return false;
-	}
-
-	void TaskCastVFX::Run()
-	{
-		if (!mSpell || !mAggressor || !mTarget)
-			return;
-
-		Cast(nullptr, 0, mSpell, mAggressor, mTarget);
-
-		//RE::BGSArtObject* spell_art = mSpell->effects[0]->baseEffect->data.hitEffectArt;
-		//if (!spell_art)
-		//	return;
-		//RE::ModelReferenceEffect* hitEffect = nullptr;
-		//if (const auto processLists = RE::ProcessLists::GetSingleton(); processLists) {
-		//	const auto handle = mTarget->CreateRefHandle();
-		//	processLists->ForEachModelEffect([&](RE::ModelReferenceEffect& a_modelEffect) {
-		//		if (a_modelEffect.target == handle && a_modelEffect.artObject == spell_art) {
-		//			hitEffect = &a_modelEffect;
-		//			return RE::BSContainer::ForEachResult::kStop;
-		//		}
-		//		return RE::BSContainer::ForEachResult::kContinue;
-		//		});
-		//}
-
-		//logger::info("{} hitEffect {:x} on {:x} {}", hitEffect ? "Found" : "Not found", mSpell->formID, mTarget->formID, mTarget->GetName());
-	}
-	void TaskCastVFX::Dispose()
-	{
-		delete this;
-	}
-	void TaskCastVFX::Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target)
-	{
-		using func_t = decltype(&TaskCastVFX::Cast);
-		REL::VariantID offset(55149, 55747, 0x930EC0);
-		REL::Relocation<func_t> func{ offset };
-		return func(VMinternal, stackId, spell, aggressor, target);
-	}
-
-	void ImpactManager_impl::Register(bool LeftHand, RE::BGSImpactDataSet* dataSet)
-	{
-		if (auto found = std::find(ImpactDataSet[LeftHand].begin(), ImpactDataSet[LeftHand].end(), dataSet); found != ImpactDataSet[LeftHand].end())
-			return;
-		ImpactDataSet[LeftHand].emplace_back(dataSet);
-	}
-	void ImpactManager_impl::UnRegister(bool LeftHand, RE::BGSImpactDataSet* dataSet)
-	{
-		if (auto found = std::find(ImpactDataSet[LeftHand].begin(), ImpactDataSet[LeftHand].end(), dataSet); found != ImpactDataSet[LeftHand].end())
-			ImpactDataSet[LeftHand].erase(found);
-	}
-
-	void ImpactManager_impl::Register(bool LeftHand, RE::SpellItem* spell)
-	{
-		if (auto found = std::find(Spell[LeftHand].begin(), Spell[LeftHand].end(), spell); found != Spell[LeftHand].end())
-			return;
-		Spell[LeftHand].emplace_back(spell);
-	}
-	void ImpactManager_impl::UnRegister(bool LeftHand, RE::SpellItem* spell)
-	{
-		if (auto found = std::find(Spell[LeftHand].begin(), Spell[LeftHand].end(), spell); found != Spell[LeftHand].end())
-			Spell[LeftHand].erase(found);
-	}
-
-	void ImpactManager_impl::Register(bool LeftHand, std::string VFXPath, std::uint8_t VFXType)
-	{
-		VFXPath = lowLetter(VFXPath);
-		if (auto found = VFX[LeftHand].find(VFXPath); found != VFX[LeftHand].end())
-			return;
-		VFX[LeftHand].emplace(VFXPath, VFXType);
-	}
-	void ImpactManager_impl::UnRegister(bool LeftHand, std::string VFXPath)
-	{
-		VFXPath = lowLetter(VFXPath);
-		if (auto found = VFX[LeftHand].find(VFXPath); found != VFX[LeftHand].end())
-			VFX[LeftHand].erase(found);
-	}
-
-	void ImpactManager_impl::UnRegister(bool LeftHand, uint32_t type)
-	{
-		if (type & ImpactManager::Type::ImpactDataSet)
-			ImpactDataSet[LeftHand].clear();
-		if (type & ImpactManager::Type::Spell)
-			Spell[LeftHand].clear();
-		if (type & ImpactManager::Type::VFX)
-			VFX[LeftHand].clear();
-	}
-
-	void ImpactManager_impl::ProcessHitEvent(const RE::TESHitEvent* evn)
-	{
-		if (!evn->cause || !evn->target)
-			return;
-		RE::Actor* cause = skyrim_cast<RE::Actor*>(evn->cause.get());
-		if (!cause)
-			return;
-
-		bool LeftHand = false;
-		auto* cause_aiprocess = cause->GetActorRuntimeData().currentProcess;
-		if (cause_aiprocess && cause_aiprocess->high && cause_aiprocess->high->attackData) {
-			LeftHand = cause_aiprocess->high->attackData->IsLeftAttack();
-		}
-		RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get());
-		auto target_aiprocess = target ? target->GetActorRuntimeData().currentProcess : nullptr;
-		if (target_aiprocess && target_aiprocess->middleHigh && target_aiprocess->middleHigh->lastHitData)
-		{
-			auto hitData = target_aiprocess->middleHigh->lastHitData;
-			if (hitData)
-			{
-				LoadHitPlayImpactData(evn->cause.get(), evn->target.get(), LeftHand, hitData->hitPosition);
-			}
-		}
-		else if (!target && Config::GetSingleton().GetEnableInanimateObject()) //for inanimate object
-		{
-			logger::debug("target : {:x}, aggressor : {:x} {} => Find HitPosition on attack to Inanimate object...", evn->target->formID, evn->cause->formID, evn->cause->GetName());
-			LoadHitPlayImpactData(cause, evn->target.get(), LeftHand);
-		}
-		else if (evn->projectile != 0 && Config::GetSingleton().GetEnableMagic() && evn->cause.get()->loadedData && evn->cause.get()->loadedData->data3D) //for magic
-		{
-			logger::debug("target : {:x} {}, aggressor : {:x} {} => Find HitPosition on spell attack.....", evn->target->formID, evn->target->GetName(), evn->cause->formID, evn->cause->GetName());
-			LoadHitPlayImpactData(cause, evn->target.get(), LeftHand);
-		}
-		CastSpell(evn->target.get(), evn->target.get(), LeftHand);
-	}
-	void ImpactManager_impl::LoadHitPlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint)
-	{
-		//RE::NiAVObject* targetObj = aggressor->loadedData->data3D->GetObjectByName(LeftHand ? "NPC L Hand [LHnd]" : "NPC R Hand [RHnd]");
-		PlayImpactData(aggressor, target, LeftHand, hitPoint);
-		PlayVFX(aggressor, target, LeftHand, hitPoint);
-	}
-	void ImpactManager_impl::LoadHitPlayImpactData(RE::Actor* cause, RE::TESObjectREFR* target, bool LeftHand)
-	{
-		if (!cause || !cause->loadedData || !cause->loadedData->data3D)
-			return;
-		if (!target || !target->loadedData || !target->loadedData->data3D)
-			return;
-		auto handNode = cause->loadedData->data3D.get()->GetObjectByName(LeftHand ? HandL : HandR);
-		if (!handNode)
-			return;
-		RE::NiAVObject* root = handNode;
-		RE::NiAVObject* obj = root;
-		RE::NiPoint3 closePoint = target->loadedData->data3D.get()->world.translate;
-		float d1 = -10000;
-		RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-			float d2 = closePoint.Dot(a_object->world.translate);
-			if (d2 > d1)
-			{
-				obj = a_object;
-				d1 = d2;
-			}
-			return RE::BSVisit::BSVisitControl::kContinue;
-			}
-		);
-		if (obj)
-			PlayImpactData(cause, target, LeftHand, obj->world.translate);
-	}
-	void ImpactManager_impl::PlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiAVObject* targetObj, bool instance)
-	{
-		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto impactData : ImpactDataSet[LeftHand])
-		{
-			TaskImpactVFX* newTask = new TaskImpactVFX(impactData, aggressor, target, hitPoint, targetObj);
-			if (!g_task || instance)
-			{
-				newTask->Run();
-				newTask->Dispose();
-			}
-			else
-			{
-				g_task->AddTask(newTask);
-			}
-		}
-	}
-	void ImpactManager_impl::CastSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, bool instance)
-	{
-		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto spell : Spell[LeftHand])
-		{
-			TaskCastVFX* newTask = new TaskCastVFX(spell, aggressor, target);
-			if (!g_task || instance)
-			{
-				newTask->Run();
-				newTask->Dispose();
-			}
-			else
-			{
-				g_task->AddTask(newTask);
-			}
-		}
-	}
-	void ImpactManager_impl::PlayVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiAVObject* targetObj, bool instance)
-	{
-		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
-		for (auto VFX : VFX[LeftHand])
-		{
-			TaskVFX* newTask = new TaskVFX(VFX.first, aggressor, target, hitPoint, VFX.second, targetObj);
-			if (!g_task || instance)
-			{
-				newTask->Run();
-				newTask->Dispose();
-			}
-			else
-			{
-				g_task->AddTask(newTask);
-			}
-		}
-	}
-
 	void ImpactManager::Save(SKSE::SerializationInterface* serde)
 	{
 		if (serde->OpenRecord(GetSingleton().ImpactManagerImpactData, 0)) {
@@ -382,6 +81,66 @@ namespace Mus {
 					}
 					auto VFXType = VFX.second;
 					serde->WriteRecordData(&VFXType, sizeof(VFXType));
+				}
+			}
+		}
+		else if (serde->OpenRecord(GetSingleton().ImpactManagerSound, 0)) {
+			logger::info("Saving on cosave for ImpactManagerSound...");
+			auto dataSize = GetSingleton().actorImpactData.size();
+			serde->WriteRecordData(&dataSize, sizeof(dataSize));
+			for (auto& actorMap : GetSingleton().actorImpactData) {
+				auto actorid = actorMap.first;
+				serde->WriteRecordData(&actorid, sizeof(actorid));
+				auto Sound1L = actorMap.second.GetSound(true, false);
+				auto Sound1SizeL = Sound1L.size();
+				serde->WriteRecordData(&Sound1SizeL, sizeof(Sound1SizeL));
+				for (auto& sound : Sound1L) {
+					auto soundid = sound->formID;
+					serde->WriteRecordData(&soundid, sizeof(soundid));
+				}
+				auto Sound2L = actorMap.second.GetSound(true, true);
+				auto Sound2SizeL = Sound2L.size();
+				serde->WriteRecordData(&Sound2SizeL, sizeof(Sound2SizeL));
+				for (auto& sound : Sound2L) {
+					auto soundid = sound->formID;
+					serde->WriteRecordData(&soundid, sizeof(soundid));
+				}
+				auto Sound1R = actorMap.second.GetSound(false, false);
+				auto Sound1SizeR = Sound1R.size();
+				serde->WriteRecordData(&Sound1SizeR, sizeof(Sound1SizeR));
+				for (auto& sound : Sound1R) {
+					auto soundid = sound->formID;
+					serde->WriteRecordData(&soundid, sizeof(soundid));
+				}
+				auto Sound2R = actorMap.second.GetSound(false, true);
+				auto Sound2SizeR = Sound2R.size();
+				serde->WriteRecordData(&Sound2SizeR, sizeof(Sound2SizeR));
+				for (auto& sound : Sound2R) {
+					auto soundid = sound->formID;
+					serde->WriteRecordData(&soundid, sizeof(soundid));
+				}
+			}
+		}
+		else if (serde->OpenRecord(GetSingleton().ImpactManagerEffectShader, 0)) {
+			logger::info("Saving on cosave for ImpactManagerEffectShader...");
+			auto dataSize = GetSingleton().actorImpactData.size();
+			serde->WriteRecordData(&dataSize, sizeof(dataSize));
+			for (auto& actorMap : GetSingleton().actorImpactData) {
+				auto actorid = actorMap.first;
+				serde->WriteRecordData(&actorid, sizeof(actorid));
+				auto effectShaderL = actorMap.second.GetEffectShader(true);
+				auto effectShaderSizeL = effectShaderL.size();
+				serde->WriteRecordData(&effectShaderSizeL, sizeof(effectShaderSizeL));
+				for (auto& effectShader : effectShaderL) {
+					auto effectShaderid = effectShader->formID;
+					serde->WriteRecordData(&effectShaderid, sizeof(effectShaderid));
+				}
+				auto effectShaderR = actorMap.second.GetEffectShader(false);
+				auto effectShaderSizeR = effectShaderR.size();
+				serde->WriteRecordData(&effectShaderSizeR, sizeof(effectShaderSizeR));
+				for (auto& effectShader : effectShaderR) {
+					auto effectShaderid = effectShader->formID;
+					serde->WriteRecordData(&effectShaderid, sizeof(effectShaderid));
 				}
 			}
 		}
@@ -531,6 +290,136 @@ namespace Mus {
 				}
 			}
 		}
+		else if (type == GetSingleton().ImpactManagerSound) {
+			logger::info("Loding on cosave ImpactManagerSound...");
+			std::size_t mapSize;
+			serde->ReadRecordData(&mapSize, sizeof(mapSize));
+			for (; mapSize > 0; --mapSize) {
+				RE::FormID ActorID;
+				serde->ReadRecordData(&ActorID, sizeof(ActorID));
+				RE::FormID newActorID;
+				RE::Actor* actor = nullptr;
+				if (!serde->ResolveFormID(ActorID, newActorID)) {
+					logger::warn("Actor ID {:X} could not be found after loading the save.", ActorID);
+				}
+				else
+					actor = skyrim_cast<RE::Actor*>(RE::TESForm::LookupByID(newActorID));
+				std::size_t SoundLSize;
+				serde->ReadRecordData(&SoundLSize, sizeof(SoundLSize));
+				for (; SoundLSize > 0; --SoundLSize) {
+					std::size_t Sound1Size;
+					serde->ReadRecordData(&Sound1Size, sizeof(Sound1Size));
+					for (; Sound1Size > 0; --Sound1Size) {
+						RE::FormID SoundID;
+						serde->ReadRecordData(&SoundID, sizeof(SoundID));
+						RE::FormID newSoundID;
+						RE::BGSSoundDescriptorForm* sound = nullptr;
+						if (!serde->ResolveFormID(SoundID, newSoundID)) {
+							logger::warn("Sound ID {:X} could not be found after loading the save.", SoundID);
+						}
+						else
+							sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(RE::TESForm::LookupByID(SoundID));
+						if (actor && sound)
+							GetSingleton().AddSound(actor, true, sound, false);
+					}
+					std::size_t Sound2Size;
+					serde->ReadRecordData(&Sound2Size, sizeof(Sound2Size));
+					for (; Sound2Size > 0; --Sound2Size) {
+						RE::FormID SoundID;
+						serde->ReadRecordData(&SoundID, sizeof(SoundID));
+						RE::FormID newSoundID;
+						RE::BGSSoundDescriptorForm* sound = nullptr;
+						if (!serde->ResolveFormID(SoundID, newSoundID)) {
+							logger::warn("Sound ID {:X} could not be found after loading the save.", SoundID);
+						}
+						else
+							sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(RE::TESForm::LookupByID(SoundID));
+						if (actor && sound)
+							GetSingleton().AddSound(actor, true, sound, true);
+					}
+				}
+				std::size_t SoundRSize;
+				serde->ReadRecordData(&SoundRSize, sizeof(SoundRSize));
+				for (; SoundRSize > 0; --SoundRSize) {
+					std::size_t Sound1Size;
+					serde->ReadRecordData(&Sound1Size, sizeof(Sound1Size));
+					for (; Sound1Size > 0; --Sound1Size) {
+						RE::FormID SoundID;
+						serde->ReadRecordData(&SoundID, sizeof(SoundID));
+						RE::FormID newSoundID;
+						RE::BGSSoundDescriptorForm* sound = nullptr;
+						if (!serde->ResolveFormID(SoundID, newSoundID)) {
+							logger::warn("Sound ID {:X} could not be found after loading the save.", SoundID);
+						}
+						else
+							sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(RE::TESForm::LookupByID(SoundID));
+						if (actor && sound)
+							GetSingleton().AddSound(actor, false, sound, false);
+					}
+					std::size_t Sound2Size;
+					serde->ReadRecordData(&Sound2Size, sizeof(Sound2Size));
+					for (; Sound2Size > 0; --Sound2Size) {
+						RE::FormID SoundID;
+						serde->ReadRecordData(&SoundID, sizeof(SoundID));
+						RE::FormID newSoundID;
+						RE::BGSSoundDescriptorForm* sound = nullptr;
+						if (!serde->ResolveFormID(SoundID, newSoundID)) {
+							logger::warn("Sound ID {:X} could not be found after loading the save.", SoundID);
+						}
+						else
+							sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(RE::TESForm::LookupByID(SoundID));
+						if (actor && sound)
+							GetSingleton().AddSound(actor, false, sound, true);
+					}
+				}
+			}
+		}
+		else if (type == GetSingleton().ImpactManagerEffectShader) {
+			logger::info("Loding on cosave ImpactManagerEffectShader...");
+			std::size_t mapSize;
+			serde->ReadRecordData(&mapSize, sizeof(mapSize));
+			for (; mapSize > 0; --mapSize) {
+				RE::FormID ActorID;
+				serde->ReadRecordData(&ActorID, sizeof(ActorID));
+				RE::FormID newActorID;
+				RE::Actor* actor = nullptr;
+				if (!serde->ResolveFormID(ActorID, newActorID)) {
+					logger::warn("Actor ID {:X} could not be found after loading the save.", ActorID);
+				}
+				else
+					actor = skyrim_cast<RE::Actor*>(RE::TESForm::LookupByID(newActorID));
+				std::size_t effectShadertLSize;
+				serde->ReadRecordData(&effectShadertLSize, sizeof(effectShadertLSize));
+				for (; effectShadertLSize > 0; --effectShadertLSize) {
+					RE::FormID EffectShaderID;
+					serde->ReadRecordData(&EffectShaderID, sizeof(EffectShaderID));
+					RE::FormID newEffectShaderID;
+					RE::TESEffectShader* EffectShader = nullptr;
+					if (!serde->ResolveFormID(EffectShaderID, newEffectShaderID)) {
+						logger::warn("EffectShader ID {:X} could not be found after loading the save.", EffectShaderID);
+					}
+					else
+						EffectShader = skyrim_cast<RE::TESEffectShader*>(RE::TESForm::LookupByID(newEffectShaderID));
+					if (actor && EffectShader)
+						GetSingleton().AddEffectShader(actor, true, EffectShader);
+				}
+				std::size_t effectShadertRSize;
+				serde->ReadRecordData(&effectShadertRSize, sizeof(effectShadertRSize));
+				for (; effectShadertRSize > 0; --effectShadertRSize) {
+					RE::FormID EffectShaderID;
+					serde->ReadRecordData(&EffectShaderID, sizeof(EffectShaderID));
+					RE::FormID newEffectShaderID;
+					RE::TESEffectShader* EffectShader = nullptr;
+					if (!serde->ResolveFormID(EffectShaderID, newEffectShaderID)) {
+						logger::warn("EffectShader ID {:X} could not be found after loading the save.", EffectShaderID);
+					}
+					else
+						EffectShader = skyrim_cast<RE::TESEffectShader*>(RE::TESForm::LookupByID(newEffectShaderID));
+					if (actor && EffectShader)
+						GetSingleton().AddEffectShader(actor, false, EffectShader);
+				}
+			}
+		}
 	}
 
 	void ImpactManager::AddImpactDataSet(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* impactData)
@@ -581,8 +470,42 @@ namespace Mus {
 			UnRegister(actor, LeftHand, Type::VFX);
 	}
 
+	void ImpactManager::AddSound(RE::Actor* actor, bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
+	{
+		if (actor && sound)
+			Register(actor, LeftHand, sound, SecondSound);
+	}
+	void ImpactManager::RemoveSound(RE::Actor* actor, bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
+	{
+		if (actor && sound)
+			UnRegister(actor, LeftHand, sound, SecondSound);
+	}
+	void ImpactManager::RemoveSound(RE::Actor* actor, bool LeftHand, bool SecondSound)
+	{
+		if (actor)
+			UnRegister(actor, LeftHand, Type::VFX);
+	}
+
+	void ImpactManager::AddEffectShader(RE::Actor* actor, bool LeftHand, RE::TESEffectShader* effectShader)
+	{
+		if (actor && effectShader)
+			Register(actor, LeftHand, effectShader);
+	}
+	void ImpactManager::RemoveEffectShader(RE::Actor* actor, bool LeftHand, RE::TESEffectShader* effectShader)
+	{
+		if (actor && effectShader)
+			UnRegister(actor, LeftHand, effectShader);
+	}
+	void ImpactManager::RemoveEffectShader(RE::Actor* actor, bool LeftHand)
+	{
+		if (actor)
+			UnRegister(actor, LeftHand, Type::EffectShader);
+	}
+
 	EventResult ImpactManager::ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>*)
 	{
+		//TimeLogger(false);
+
 		if (!evn || !evn->cause || !evn->target)
 			return EventResult::kContinue;
 
@@ -595,59 +518,75 @@ namespace Mus {
 
 		if (auto found = actorImpactData.find(cause->formID); found != actorImpactData.end())
 		{
-			if (found->second.IsVaild())
-			{
-				found->second.ProcessHitEvent(evn);
-				logger::debug("target : {:x} {}, aggressor : {:x} {}", evn->target.get()->formID, evn->target.get()->GetName(), cause->formID, evn->cause.get()->GetName());
-			}
+			found->second.ProcessHitEvent(evn);
+			logger::debug("target : {:x} {}, aggressor : {:x} {}", evn->target.get()->formID, evn->target.get()->GetName(), cause->formID, evn->cause.get()->GetName());
 		}
 
-		std::shared_ptr<ImpactManager_impl> idm_;
-		if (auto found = conditionActorImpactData.find(cause->formID); found != conditionActorImpactData.end())
-		{
-			idm_ = found->second;
-		}
-		else
-		{
-			idm_ = std::make_shared<ImpactManager_impl>(cause);
-			conditionActorImpactData.insert(std::make_pair(cause->formID, idm_));
-		}
 		for (const auto& condition : ConditionManager::GetSingleton().GetCondition(evn))
 		{
-			for (const auto& ids : condition.ImpactDataSets)
+			for (const auto& item : condition.ImpactDataSets)
 			{
-				auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(ids.id, ids.pluginName));
+				auto impact = skyrim_cast<RE::BGSImpactDataSet*>(GetFormByID(item.id, item.pluginName));
 				if (impact)
 				{
-					idm_->Register(false, impact);
-					idm_->Register(true, impact);
+					conditionActorImpactData.Register(false, impact);
+					conditionActorImpactData.Register(true, impact);
 				}
 			}
-			for (const auto& ids : condition.SpellItems)
+			for (const auto& item : condition.SpellItems)
 			{
-				auto spell = skyrim_cast<RE::SpellItem*>(GetFormByID(ids.id, ids.pluginName));
+				auto spell = skyrim_cast<RE::SpellItem*>(GetFormByID(item.id, item.pluginName));
 				if (spell)
 				{
-					idm_->Register(false, spell);
-					idm_->Register(true, spell);
+					conditionActorImpactData.Register(false, spell);
+					conditionActorImpactData.Register(true, spell);
 				}
 			}
-			for (const auto& ids : condition.VFXItems)
+			for (const auto& item : condition.VFXItems)
 			{
-				if (!ids.vfxPath.empty())
+				if (!item.vfxPath.empty())
 				{
-					idm_->Register(false, ids.vfxPath, ids.vfxType);
-					idm_->Register(true, ids.vfxPath, ids.vfxType);
+					conditionActorImpactData.Register(false, item.vfxPath, item.vfxType);
+					conditionActorImpactData.Register(true, item.vfxPath, item.vfxType);
+				}
+			}
+			for (const auto& item : condition.SoundDescriptor1Items)
+			{
+				auto sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(GetFormByID(item.id, item.pluginName));
+				if (sound)
+				{
+					conditionActorImpactData.Register(false, sound, false);
+					conditionActorImpactData.Register(true, sound, false);
+				}
+			}
+			for (const auto& item : condition.SoundDescriptor2Items)
+			{
+				auto sound = skyrim_cast<RE::BGSSoundDescriptorForm*>(GetFormByID(item.id, item.pluginName));
+				if (sound)
+				{
+					conditionActorImpactData.Register(false, sound, true);
+					conditionActorImpactData.Register(true, sound, true);
+				}
+			}
+			for (const auto& item : condition.EffectShaderItems)
+			{
+				auto effectShader = skyrim_cast<RE::TESEffectShader*>(GetFormByID(item.id, item.pluginName));
+				if (effectShader)
+				{
+					conditionActorImpactData.Register(false, effectShader);
+					conditionActorImpactData.Register(true, effectShader);
 				}
 			}
 		}
-		idm_->ProcessHitEvent(evn);
+		conditionActorImpactData.ProcessHitEvent(evn);
 
 		for (std::uint32_t i = 0; i < ImpactManager::Type::Total; i++)
 		{
-			idm_->UnRegister(true, i);
-			idm_->UnRegister(false, i);
+			conditionActorImpactData.UnRegister(true, i);
+			conditionActorImpactData.UnRegister(false, i);
 		}
+	
+		//TimeLogger(true);
 
 		return EventResult::kContinue;
 	}
@@ -666,6 +605,7 @@ namespace Mus {
 		}
 		logger::info("Registered : ImpactdataSet {:x} {} on Actor {:x} {}", dataSet->formID, dataSet->GetFormEditorID(), actor->formID, actor->GetName());
 	}
+
 	void ImpactManager::Register(RE::Actor* actor, bool LeftHand, RE::SpellItem* spell)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
@@ -680,6 +620,7 @@ namespace Mus {
 		}
 		logger::info("Registered : Spell {:x} {} on Actor {:x} {}", spell->formID, spell->GetFormEditorID(), actor->formID, actor->GetName());
 	}
+
 	void ImpactManager::Register(RE::Actor* actor, bool LeftHand, std::string VFXPath, std::uint8_t VFXType)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
@@ -695,6 +636,36 @@ namespace Mus {
 		logger::info("Registered : VFX {} on Actor {:x} {}", VFXPath, actor->formID, actor->GetName());
 	}
 
+	void ImpactManager::Register(RE::Actor* actor, bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
+	{
+		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
+		{
+			found->second.Register(LeftHand, sound, SecondSound);
+		}
+		else
+		{
+			ImpactManager_impl idm_ = ImpactManager_impl(actor);
+			idm_.Register(LeftHand, sound, SecondSound);
+			actorImpactData.insert(std::make_pair(actor->formID, idm_));
+		}
+		logger::info("Registered : Sound{} {:x} on Actor {:x} {}", SecondSound ? 2 : 1, sound->formID, actor->formID, actor->GetName());
+	}
+
+	void ImpactManager::Register(RE::Actor* actor, bool LeftHand, RE::TESEffectShader* effectShader)
+	{
+		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
+		{
+			found->second.Register(LeftHand, effectShader);
+		}
+		else
+		{
+			ImpactManager_impl idm_ = ImpactManager_impl(actor);
+			idm_.Register(LeftHand, effectShader);
+			actorImpactData.insert(std::make_pair(actor->formID, idm_));
+		}
+		logger::info("Registered : EffectShader {:x} on Actor {:x} {}", effectShader->formID, actor->formID, actor->GetName());
+	}
+
 	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, RE::BGSImpactDataSet* dataSet)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
@@ -703,6 +674,7 @@ namespace Mus {
 		}
 		logger::info("UnRegistered : ImpactdataSet {:x} {} on Actor {:x} {}", dataSet->formID, dataSet->GetFormEditorID(), actor->formID, actor->GetName());
 	}
+
 	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, RE::SpellItem* spell)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
@@ -711,6 +683,7 @@ namespace Mus {
 		}
 		logger::info("UnRegistered : Spell {:x} {} on Actor {:x} {}", spell->formID, spell->GetFormEditorID(), actor->formID, actor->GetName());
 	}
+
 	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, std::string VFXPath)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
@@ -719,6 +692,25 @@ namespace Mus {
 		}
 		logger::info("UnRegistered : VFX {} on Actor {:x} {}", VFXPath, actor->formID, actor->GetName());
 	}
+
+	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound)
+	{
+		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
+		{
+			found->second.UnRegister(LeftHand, sound, SecondSound);
+		}
+		logger::info("UnRegistered : Sound{} {:x} on Actor {:x} {}", SecondSound ? 2 : 1, sound->formID, actor->formID, actor->GetName());
+	}
+
+	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, RE::TESEffectShader* effectShader)
+	{
+		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())
+		{
+			found->second.UnRegister(LeftHand, effectShader);
+		}
+		logger::info("UnRegistered : EffectShader {:x} on Actor {:x} {}", effectShader->formID, actor->formID, actor->GetName());
+	}
+
 	void ImpactManager::UnRegister(RE::Actor* actor, bool LeftHand, Type type)
 	{
 		if (auto found = actorImpactData.find(actor->formID); found != actorImpactData.end())

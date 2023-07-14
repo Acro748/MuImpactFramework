@@ -28,6 +28,12 @@ namespace Mus {
         [[nodiscard]] inline bool GetEnableInanimateObject() const noexcept {
             return EnableInanimateObject;
         }
+        [[nodiscard]] inline std::uint32_t GetArtObjectVFXLimit() const noexcept {
+            return ArtObjectVFXLimit;
+        }
+        [[nodiscard]] inline std::uint32_t GetSoundLimit() const noexcept {
+            return SoundLimit;
+        }
         
     private:
         //Debug
@@ -38,6 +44,8 @@ namespace Mus {
         bool InstanceMode = false;
         bool EnableMagic = false;
         bool EnableInanimateObject = false;
+        std::uint32_t ArtObjectVFXLimit = 32;
+        std::uint32_t SoundLimit = 32;
 
     public:
         // trim from start (in place)
@@ -165,6 +173,13 @@ namespace Mus {
         {
             int value = 0;
             value = std::stoi(valuestr);
+            return value;
+        }
+
+        inline std::uint32_t GetConfigSettingsUintValue(std::string valuestr)
+        {
+            int value = 0;
+            value = std::stoul(valuestr);
             return value;
         }
 

@@ -47,9 +47,6 @@ namespace Mus {
 					auto& AND = Condition.AND[option].at(i);
 					for (auto& OR : AND)
 					{
-						if (OR.type != ConditionType::IsInanimateObject && isInanimateObject(actor))
-							continue;
-
 						bool isTrue = false;
 						switch (OR.type) {
 						case ConditionType::IsEquippedLeft:
@@ -111,6 +108,9 @@ namespace Mus {
 							break;
 						case ConditionType::IsActor:
 							isTrue = isActor(actor, OR.pluginName, OR.id);
+							break;
+						case ConditionType::IsObjectReference:
+							isTrue = isObjectReference(obj, OR.pluginName, OR.id);
 							break;
 						case ConditionType::IsRace:
 							isTrue = isRace(actor, OR.pluginName, OR.id);
@@ -196,7 +196,6 @@ namespace Mus {
 				found_condition.push_back(Condition);
 			}
 		});
-
 		return found_condition;
 	}
 
@@ -293,13 +292,13 @@ namespace Mus {
 	{
 		std::uint8_t vfxType = TaskVFX::VFXType::Impact;
 		if (vfxPath.empty())
-			return 200;
+			return TaskVFX::VFXType::None;
 
 		std::string newPath = "Meshes\\" + vfxPath;
 		RE::BSResourceNiBinaryStream binaryStream(newPath.c_str());
 		if (!binaryStream.good()) {
 			logger::error("Failed load to nif file - {}", newPath.c_str());
-			return 200;
+			return TaskVFX::VFXType::None;
 		}
 
 		std::uint8_t niStreamMemory[sizeof(RE::NiStream)];
@@ -319,7 +318,7 @@ namespace Mus {
 				auto manager = controller->AsNiControllerManager();
 				if (manager)
 				{
-					vfxType = TaskVFX::VFXType::Spell;
+					vfxType = TaskVFX::VFXType::HitEffect;
 					break;
 				}
 			}

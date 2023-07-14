@@ -34,6 +34,7 @@ namespace Mus {
 			HasSpell,
 			IsActorBase,
 			IsActor,
+			IsObjectReference,
 			IsRace,
 			IsClass,
 			IsCombatStyle,
@@ -89,11 +90,14 @@ namespace Mus {
 			std::vector<PluginsInfo> ImpactDataSets;
 			std::vector<PluginsInfo> SpellItems;
 			std::vector<VFXInfo> VFXItems;
+			std::vector<PluginsInfo> SoundDescriptor1Items;
+			std::vector<PluginsInfo> SoundDescriptor2Items;
+			std::vector<PluginsInfo> EffectShaderItems;
 			std::string originalCondition[ConditionOption::OptionTotal];
 			std::vector<ConditionItemOr> AND[ConditionOption::OptionTotal];
 		};
 
-		bool RegisterCondition(Condition condition, std::string presetPath);
+		bool RegisterCondition(Condition condition, std::string configPath);
 
 		const concurrency::concurrent_vector<Condition> GetCondition(const RE::TESHitEvent* evn);
 
@@ -313,6 +317,13 @@ namespace Mus {
 				return false;
 			RE::TESForm* form = GetFormByID(id, pluginname);
 			return form && actor->formID == form->formID;
+		}
+
+		inline bool isObjectReference(RE::TESObjectREFR* ref, std::string pluginname, RE::FormID id) {
+			if (RE::Actor* actor = skyrim_cast<RE::Actor*>(ref); actor || !ref)
+				return false;
+			RE::TESForm* form = GetFormByID(id, pluginname);
+			return form && ref->formID == form->formID;
 		}
 
 		inline bool isRace(RE::Actor* actor, std::string pluginname, RE::FormID id) {
