@@ -34,6 +34,9 @@ namespace Mus {
         [[nodiscard]] inline std::uint32_t GetSoundLimit() const noexcept {
             return SoundLimit;
         }
+        [[nodiscard]] inline std::vector<std::uint32_t> GetRemoveList() const noexcept {
+            return RemoveList;
+        }
         
     private:
         //Debug
@@ -47,6 +50,7 @@ namespace Mus {
         std::uint32_t ArtObjectVFXLimit = 32;
         std::uint32_t SoundLimit = 32;
 
+        std::vector<std::uint32_t> RemoveList;
     public:
         // trim from start (in place)
         inline static void ltrim(std::string& s)
@@ -216,26 +220,61 @@ namespace Mus {
             }
             return value;
         }
+
+        inline static std::string ws2s(const std::wstring& wstr)
+        {
+            using convert_typeX = std::codecvt_utf8<wchar_t>;
+            std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+            return converterX.to_bytes(wstr);
+        }
+        inline static std::string ansi2utf8(std::string str)
+        {
+            std::wstring unicode;
+            const char* ansi = str.c_str();
+            std::size_t ansi_size = str.size();
+            do {
+                if ((nullptr == ansi) || (0 == ansi_size)) {
+                    break;
+                }
+                unicode.clear();
+
+                int required_cch = ::MultiByteToWideChar(
+                    CP_ACP,
+                    0,
+                    ansi, static_cast<int>(ansi_size),
+                    nullptr, 0
+                );
+
+                if (0 == required_cch) {
+                    break;
+                }
+                unicode.resize(required_cch);
+
+                if (0 == ::MultiByteToWideChar(
+                    CP_ACP,
+                    0,
+                    ansi, static_cast<int>(ansi_size),
+                    const_cast<wchar_t*>(unicode.c_str()), static_cast<int>(unicode.size())
+                )) {
+                    break;
+                }
+            } while (false);
+            return ws2s(unicode);
+        }
     };
 
     class MultipleConfig : public Config {
     public:
         bool LoadSetupConfig();
 
-        static inline std::vector<std::string> get_all_files_names_within_folder(std::string folder)
+        static inline std::vector<std::string> GetAllFiles(std::string folder)
         {
             std::vector<std::string> names;
-
-            DIR* directory = opendir(folder.c_str());
-            struct dirent* direntStruct;
-
-            if (directory != nullptr) {
-                while (direntStruct = readdir(directory)) {
-                    names.emplace_back(direntStruct->d_name);
-                }
+            for (const auto& file : std::filesystem::directory_iterator(folder))
+            {
+                names.emplace_back(file.path().string());
             }
-            closedir(directory);
-
             return names;
         }
 

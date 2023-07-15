@@ -88,23 +88,20 @@ namespace Mus {
         configPath += SKSE::PluginDeclaration::GetSingleton()->GetName().data();
         configPath += "\\";
 
-        auto configList = get_all_files_names_within_folder(configPath.c_str());
-        concurrency::parallel_for(std::size_t(0), configList.size(), [&](std::size_t i) {
-            std::string filename = configList.at(i);
-
-            if (filename != "." && filename != "..")
+        auto configList = GetAllFiles(configPath);
+        concurrency::parallel_for_each(configList.begin(), configList.end(), [&](auto& filepath) {
+            if (filepath != "." && filepath != "..")
             {
-                if (stringEndsWith(filename, ".ini"))
+                if (stringEndsWith(filepath, ".ini"))
                 {
+                    std::string filename = ansi2utf8((split(filepath, "\\").end() - 1)->c_str());
                     logger::info("File found: {}", filename);
 
-                    std::string filepath = configPath;
-                    filepath.append(filename);
                     std::ifstream file(filepath);
 
                     if (!file.is_open())
                     {
-                        transform(filepath.begin(), filepath.end(), filepath.begin(), ::tolower);
+                        lowLetter(filepath);
                         file.open(filepath);
                     }
 
@@ -312,7 +309,9 @@ namespace Mus {
                     }
                 }
             }
-            });
+        });
+        logger::info("Registered Condition : {}", ConditionManager::GetSingleton().ConditionCount());
+
         return true;
     }
 }

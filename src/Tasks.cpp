@@ -88,6 +88,7 @@ namespace Mus {
 		static std::vector<RE::BGSImpactData*> impactDataList;
 		if (impactDataList.size() == 0)
 		{
+			auto handler = RE::TESDataHandler::GetSingleton();
 			for (std::uint32_t i = 0; i < Config::GetSingleton().GetSoundLimit(); i++)
 			{
 				auto impactData = GetNewForm<RE::BGSImpactData>();
@@ -95,6 +96,7 @@ namespace Mus {
 				newEditorID += std::to_string(i);
 				impactData->SetFormEditorID(newEditorID.c_str());
 				impactDataList.emplace_back(impactData);
+				handler->GetFormArray<RE::BGSImpactData>().emplace_back(impactData);
 			}
 		}
 		if (ImpactDataNum >= impactDataList.size())
@@ -109,6 +111,7 @@ namespace Mus {
 		static std::vector<RE::BGSArtObject*> artObjectList;
 		if (artObjectList.size() == 0)
 		{
+			auto handler = RE::TESDataHandler::GetSingleton();
 			for (std::uint32_t i = 0; i < Config::GetSingleton().GetArtObjectVFXLimit(); i++)
 			{
 				auto artObject = GetNewForm<RE::BGSArtObject>();
@@ -116,6 +119,7 @@ namespace Mus {
 				newEditorID += std::to_string(i);
 				artObject->SetFormEditorID(newEditorID.c_str());
 				artObjectList.emplace_back(artObject);
+				handler->GetFormArray<RE::BGSArtObject>().emplace_back(artObject);
 			}
 		}
 		if (ArtObjectNum >= artObjectList.size())
@@ -173,7 +177,7 @@ namespace Mus {
 	{
 		if (!mTarget)
 			return false;
-		auto art = TaskTempFormManager::GetSingleton()->GetArtObjectTempForm();
+		auto art = TaskTempFormManager::GetSingleton().GetArtObjectTempForm();
 		if (!art)
 			return false;
 		art->SetModel(mVFXPath.c_str());
@@ -204,7 +208,7 @@ namespace Mus {
 		if (mSound2)
 			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, mSound2);
 
-		RE::BGSImpactData* impactData = TaskTempFormManager::GetSingleton()->GetImpactDataTempForm();
+		RE::BGSImpactData* impactData = TaskTempFormManager::GetSingleton().GetImpactDataTempForm();
 		impactData->sound1 = mSound1;
 		impactData->sound2 = mSound2;
 		RE::BGSImpactManager::ImpactSoundData sound{
@@ -229,23 +233,6 @@ namespace Mus {
 			return;
 
 		Cast(nullptr, 0, mSpell, mAggressor, mTarget);
-
-		//RE::BGSArtObject* spell_art = mSpell->effects[0]->baseEffect->data.hitEffectArt;
-		//if (!spell_art)
-		//	return;
-		//RE::ModelReferenceEffect* hitEffect = nullptr;
-		//if (const auto processLists = RE::ProcessLists::GetSingleton(); processLists) {
-		//	const auto handle = mTarget->CreateRefHandle();
-		//	processLists->ForEachModelEffect([&](RE::ModelReferenceEffect& a_modelEffect) {
-		//		if (a_modelEffect.target == handle && a_modelEffect.artObject == spell_art) {
-		//			hitEffect = &a_modelEffect;
-		//			return RE::BSContainer::ForEachResult::kStop;
-		//		}
-		//		return RE::BSContainer::ForEachResult::kContinue;
-		//		});
-		//}
-
-		//logger::info("{} hitEffect {:x} on {:x} {}", hitEffect ? "Found" : "Not found", mSpell->formID, mTarget->formID, mTarget->GetName());
 	}
 	void TaskCastVFX::Dispose()
 	{

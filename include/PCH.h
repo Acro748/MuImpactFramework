@@ -32,6 +32,7 @@
 #include <bitset>
 #include <charconv>
 #include <chrono>
+#include <codecvt>
 #include <compare>
 #include <complex>
 #include <concepts>
@@ -128,8 +129,6 @@ namespace logger = SKSE::log;
 namespace util {
     using SKSE::stl::report_and_fail;
 }
-
-#include "dirent.h"
 
 #include "Utility.hpp"
 #include "nifUtil.h"

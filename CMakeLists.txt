@@ -23,7 +23,6 @@ configure_file(
 )
 
 set(headers
-        include/dirent.h
         include/Utility.hpp
         include/nifUtil.h
         include/PapyrusScripts.h

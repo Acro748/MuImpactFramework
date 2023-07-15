@@ -149,7 +149,9 @@ namespace {
             if (!evn->opening && IsSameString(evn->menuName.c_str(), "Main Menu"))
             {
                 static_cast<MultipleConfig>(Config::GetSingleton()).LoadSetupConfig();
-                return EventResult::kStop;
+                if (const auto Menu = RE::UI::GetSingleton(); Menu) {
+                    Menu->RemoveEventSink<RE::MenuOpenCloseEvent>(this);
+                }
             }
             return EventResult::kContinue;
         };

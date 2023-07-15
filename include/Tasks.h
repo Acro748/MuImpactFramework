@@ -23,9 +23,9 @@ namespace Mus {
 	class TaskTempFormManager
 	{
 	public:
-		[[nodiscard]] static TaskTempFormManager* GetSingleton() {
+		[[nodiscard]] static TaskTempFormManager& GetSingleton() {
 			static TaskTempFormManager instance;
-			return &instance;
+			return instance;
 		};
 
 		RE::BGSImpactData* GetImpactDataTempForm();

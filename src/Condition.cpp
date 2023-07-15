@@ -155,6 +155,10 @@ namespace Mus {
 			item.conditionFunction = std::make_shared<ConditionFragment::IsEquippedType>();
 			isLeft = true;
 			break;
+		case ConditionType::IsEquippedLeftTypeAlt:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsEquippedTypeAlt>();
+			isLeft = true;
+			break;
 		case ConditionType::IsEquippedLeftHasKeyword:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsEquippedHasKeyword>();
 			isLeft = true;
@@ -169,6 +173,10 @@ namespace Mus {
 			break;
 		case ConditionType::IsEquippedRightType:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsEquippedType>();
+			isLeft = false;
+			break;
+		case ConditionType::IsEquippedRightTypeAlt:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsEquippedTypeAlt>();
 			isLeft = false;
 			break;
 		case ConditionType::IsEquippedRightHasKeyword:
@@ -368,6 +376,39 @@ namespace Mus {
 				return true;
 			else if (!weapon && type == 0)
 				return true;
+			return false;
+		}
+
+		void IsEquippedTypeAlt::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			type = std::stoi(item.arg);
+			isLeft = IsLeft;
+		}
+		bool IsEquippedTypeAlt::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		{
+			if (!actor)
+				return false;
+			RE::TESForm* equipped = actor->GetEquippedObject(isLeft);
+			RE::TESObjectWEAP* weapon = equipped ? skyrim_cast<RE::TESObjectWEAP*>(equipped) : nullptr;
+			if (!weapon)
+			{
+				return type == 0;
+			}
+			std::uint32_t weaponType = weapon->weaponData.animationType.underlying();
+			if (weaponType < std::to_underlying(RE::WEAPON_TYPE::kTwoHandAxe)) {
+				return weaponType == type;
+			}
+			else if (weaponType > std::to_underlying(RE::WEAPON_TYPE::kTwoHandAxe)) {
+				return weaponType == (type - 1);
+			}
+			else {
+				if (weaponType == type)
+					return weapon->HasKeywordString("WeapTypeBattleaxe");
+				else if (weaponType == (type - 1))
+					return weapon->HasKeywordString("WeapTypeWarhammer");
+				else
+					return weaponType == type;
+			}
 			return false;
 		}
 

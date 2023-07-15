@@ -20,10 +20,12 @@ namespace Mus {
 		enum ConditionType : std::uint8_t {
 			IsEquippedLeft,
 			IsEquippedLeftType,
+			IsEquippedLeftTypeAlt,
 			IsEquippedLeftHasKeyword,
 			IsEquippedLeftHasKeywordEditorID,
 			IsEquippedRight,
 			IsEquippedRightType,
+			IsEquippedRightTypeAlt,
 			IsEquippedRightHasKeyword,
 			IsEquippedRightHasKeywordEditorID,
 			IsEquippedPowerOrShout,
@@ -103,6 +105,7 @@ namespace Mus {
 
 		const concurrency::concurrent_vector<Condition> GetCondition(const RE::TESHitEvent* evn);
 
+		std::size_t ConditionCount() const { return ConditionList.size(); }
 	private:
 		concurrency::concurrent_vector<Condition> ConditionList;
 		std::unordered_map<std::string, ConditionType> ConditionMap;
@@ -113,29 +116,26 @@ namespace Mus {
 		bool GetConditionFunction(ConditionItem& item);
 		bool ConditionCheck(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags, Condition condition);
 
-		inline bool isValidCondition(bool ConditionResult, bool NOT) {
-			return (ConditionResult ^ NOT);
-		}
-
 		inline void Logging(RE::TESObjectREFR* obj, std::uint8_t option, const ConditionItem& OR, bool isTrue) {
 			std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
 			if (IsContainString(typestr, "EditorID") || IsContainString(typestr, "Type"))
 			{
 				logger::debug("{} {:x} : {} Condition {}{}({}) is {}", obj->GetName(), obj->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.arg,
-					isValidCondition(isTrue, OR.NOT) ? "True" : "False");
+					isTrue ? "True" : "False");
 			}
 			else if (OR.type >= ConditionType::IsFemale)
 			{
 				std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
 				logger::debug("{} {:x} : {} Condition {}{}() is {}", obj->GetName(), obj->formID,
-					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, isValidCondition(isTrue, OR.NOT) ? "True" : "False");
+					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, 
+					isTrue ? "True" : "False");
 			}
 			else
 			{
 				logger::debug("{} {:x} : {} Condition {}{}({}{}{:x}) is {}", obj->GetName(), obj->formID,
 					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.pluginName == "" ? "" : "|", OR.id,
-					isValidCondition(isTrue, OR.NOT) ? "True" : "False");
+					isTrue ? "True" : "False");
 			}
 		}
 	};
@@ -164,6 +164,15 @@ namespace Mus {
 		class IsEquippedType : public ConditionBase {
 		public:
 			IsEquippedType() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+		private:
+			std::uint32_t type = 0;
+		};
+
+		class IsEquippedTypeAlt : public ConditionBase {
+		public:
+			IsEquippedTypeAlt() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
 			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
 		private:
