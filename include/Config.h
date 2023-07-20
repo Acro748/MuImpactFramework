@@ -22,9 +22,6 @@ namespace Mus {
         [[nodiscard]] inline bool GetInstanceMode() const noexcept {
             return InstanceMode;
         }
-        [[nodiscard]] inline bool GetEnableMagic() const noexcept {
-            return EnableMagic;
-        }
         [[nodiscard]] inline bool GetEnableInanimateObject() const noexcept {
             return EnableInanimateObject;
         }
@@ -48,7 +45,6 @@ namespace Mus {
 
         //General
         bool InstanceMode = false;
-        bool EnableMagic = false;
         bool EnableInanimateObject = false;
         std::uint32_t ArtObjectVFXLimit = 32;
         std::uint32_t SoundLimit = 32;

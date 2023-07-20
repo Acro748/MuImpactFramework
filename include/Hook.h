@@ -58,11 +58,19 @@ namespace Mus {
 			Right = 1 << 1,
 			Both = Left + Right
 		};
-		enum class SpellDamageType : std::uint32_t {
+		enum class DamageType : std::uint32_t {
 			None = 0,
 			Health = 1 << 0,
 			Magicka = 1 << 1,
 			Stamina = 1 << 2,
+
+			Total
+		};
+		enum class ElementalType : std::uint32_t {
+			None = 0,
+			Fire = 1 << 0,
+			Frost = 1 << 1,
+			Shock = 1 << 2,
 
 			Total
 		};
@@ -78,8 +86,6 @@ namespace Mus {
 		RE::TESShout* shout = nullptr;
 		RE::TESShout::VariationID shoutNum = RE::TESShout::VariationID::kNone;
 		RE::SpellItem* spell = nullptr;
-		RE::MagicItem* magicItem = nullptr;
-		RE::stl::enumeration<SpellDamageType, std::uint32_t> spellDamageType = SpellDamageType::None;
 
 		//weapon attack
 		RE::TESObjectWEAP* weapon = nullptr;
@@ -87,10 +93,13 @@ namespace Mus {
 		RE::stl::enumeration<RE::HitData::Flag, std::uint32_t> flags = RE::HitData::Flag(0);
 
 		//misc
+		RE::MagicItem* magicItem = nullptr;
 		float damage = 0.0f;
 		RE::stl::enumeration<AttackHand, std::uint8_t> attackHand = AttackHand::Left;
 		EventType eventType = EventType::None;
 		AttackType attackType = AttackType::None;
+		RE::stl::enumeration<DamageType, std::uint32_t> damageType = DamageType::None;
+		RE::stl::enumeration<ElementalType, std::uint32_t> elementalType = ElementalType::None;
 	};
 
 	template <class Event = void>

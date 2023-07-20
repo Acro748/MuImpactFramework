@@ -34,25 +34,25 @@ namespace Mus {
 						return RE::BSVisit::BSVisitControl::kContinue;
 
 					const auto colLayer = static_cast<RE::COL_LAYER>(collidable->broadPhaseHandle.collisionFilterInfo & 0x7F);
-					logger::info("{}", magic_enum::enum_name(colLayer).data());
 					materialID = GetMaterialID(colLayer);
 					if (materialID != RE::MATERIAL_ID::kNone)
 						return RE::BSVisit::BSVisitControl::kStop;
 
 					return RE::BSVisit::BSVisitControl::kContinue;
-				});
+					});
 			}
-			logger::info("materialID {}", std::to_underlying(materialID));
 			if (materialID == RE::MATERIAL_ID::kNone)
 				materialID = RE::MATERIAL_ID::kDirt;
 			material = RE::BGSMaterialType::GetMaterialType(materialID);
 		}
+		else //maybe ground only
+			material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kGrass);
 
 		auto found = material ? mImpactData->impactMap.find(material) : mImpactData->impactMap.end();
 		if (found == mImpactData->impactMap.end())
 			return;
 		
-		logger::info("material type {} for {:x} {}", std::to_underlying(found->first->materialID), mTarget->formID, mTarget->GetName());
+		logger::debug("material type {} for {:x} {}", std::to_underlying(found->first->materialID), mTarget->formID, mTarget->GetName());
 		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, found->second->GetModel(), mHitDirection, mHitPoint, 1.0f, 7, mTargetObj);
 		if (particle)
 		{

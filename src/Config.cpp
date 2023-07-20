@@ -60,10 +60,6 @@ namespace Mus {
                 {
                     InstanceMode = GetConfigSettingsBoolValue(variableValue);
                 }
-                else if (variableName == "EnableMagic")
-                {
-                    EnableMagic = GetConfigSettingsBoolValue(variableValue);
-                }
                 else if (variableName == "EnableInanimateObject")
                 {
                     EnableInanimateObject = GetConfigSettingsBoolValue(variableValue);
