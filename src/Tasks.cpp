@@ -6,27 +6,53 @@ namespace Mus {
 		if (!mImpactData || !mTarget)
 			return;
 
-		auto materialType = RE::BGSMaterialType::GetMaterialType(RE::TES::GetSingleton()->GetLandMaterialType(mHitPoint));
-		auto found = mImpactData->impactMap.find(materialType);
-		if (found == mImpactData->impactMap.end())
+		RE::BGSMaterialType* material = nullptr;
+		if (auto target = skyrim_cast<RE::Actor*>(mTarget); target) //only actor
 		{
-			logger::error("couldn't get material info {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
-			
-			auto closeObj = GetObjectByDistance();
-			if (closeObj)
-				materialType = RE::BGSMaterialType::GetMaterialType(RE::TES::GetSingleton()->GetLandMaterialType(closeObj->world.translate));
-			found = mImpactData->impactMap.find(materialType);
-			if (found == mImpactData->impactMap.end())
+			if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
+				material = race->bloodImpactMaterial;
+			else
+				material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
+		}
+		else if (mTarget->loadedData && mTarget->loadedData->data3D) //is it only the player who can attack a non actor?
+		{
+			RE::MATERIAL_ID materialID = RE::TES::GetSingleton()->GetLandMaterialType(emptyPoint);
+			if (materialID == RE::MATERIAL_ID::kNone)
 			{
-				materialType = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
-				found = mImpactData->impactMap.find(materialType);
-				if (found == mImpactData->impactMap.end())
-				{
-					found = mImpactData->impactMap.begin();
-				}
+				auto root = mTarget->loadedData->data3D.get();
+				RE::BSVisit::TraverseScenegraphCollision(root, [&](RE::bhkNiCollisionObject* colObj) {
+					const auto rigidBody = colObj->body ? colObj->body->AsBhkRigidBody() : nullptr;
+					if (!rigidBody || !rigidBody->referencedObject)
+						return RE::BSVisit::BSVisitControl::kContinue;
+
+					const auto havokRigidBody = static_cast<RE::hkpRigidBody*>(rigidBody->referencedObject.get());
+					if (!havokRigidBody)
+						return RE::BSVisit::BSVisitControl::kContinue;
+
+					const auto collidable = havokRigidBody->GetCollidable();
+					if (!collidable)
+						return RE::BSVisit::BSVisitControl::kContinue;
+
+					const auto colLayer = static_cast<RE::COL_LAYER>(collidable->broadPhaseHandle.collisionFilterInfo & 0x7F);
+					logger::info("{}", magic_enum::enum_name(colLayer).data());
+					materialID = GetMaterialID(colLayer);
+					if (materialID != RE::MATERIAL_ID::kNone)
+						return RE::BSVisit::BSVisitControl::kStop;
+
+					return RE::BSVisit::BSVisitControl::kContinue;
+				});
 			}
+			logger::info("materialID {}", std::to_underlying(materialID));
+			if (materialID == RE::MATERIAL_ID::kNone)
+				materialID = RE::MATERIAL_ID::kDirt;
+			material = RE::BGSMaterialType::GetMaterialType(materialID);
 		}
 
+		auto found = material ? mImpactData->impactMap.find(material) : mImpactData->impactMap.end();
+		if (found == mImpactData->impactMap.end())
+			return;
+		
+		logger::info("material type {} for {:x} {}", std::to_underlying(found->first->materialID), mTarget->formID, mTarget->GetName());
 		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, found->second->GetModel(), mHitDirection, mHitPoint, 1.0f, 7, mTargetObj);
 		if (particle)
 		{
@@ -34,11 +60,11 @@ namespace Mus {
 			processLists->globalEffectsLock.Lock();
 			processLists->globalTempEffects.emplace_back(particle);
 			processLists->globalEffectsLock.Unlock();
-			logger::debug("create ImpactVFX {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
+			logger::trace("create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget->formID, mTarget->GetName());
 		}
 		else
 		{
-			logger::debug("couldn't create ImpactVFX {:x} on ({}, {}, {}) for {:x} {}", mImpactData->formID, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
+			logger::error("couldn't create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget->formID, mTarget->GetName());
 			return;
 		}
 
@@ -62,24 +88,32 @@ namespace Mus {
 	{
 		delete this;
 	}
-	RE::NiAVObject* TaskImpactVFX::GetObjectByDistance()
+	RE::MATERIAL_ID TaskImpactVFX::GetMaterialID(const RE::COL_LAYER& layer)
 	{
-		if (!mTarget || !mTarget->loadedData || !mTarget->loadedData->data3D)
-			return nullptr;
-		RE::NiAVObject* root = mTarget->loadedData->data3D.get();
-		RE::NiAVObject* obj = root;
-		float d1 = 10000;
-		RE::BSVisit::TraverseScenegraphObjects(root, [&](RE::NiAVObject* a_object) -> RE::BSVisit::BSVisitControl {
-			float d2 = mHitPoint.GetSquaredDistance(a_object->world.translate);
-			if (d2 < d1)
-			{
-				obj = a_object;
-				d1 = d2;
-			}
-			return RE::BSVisit::BSVisitControl::kContinue;
-			}
-		);
-		return obj;
+		RE::MATERIAL_ID result = RE::MATERIAL_ID::kNone;
+		switch (layer) {
+		case RE::COL_LAYER::kTrees:
+			result = RE::MATERIAL_ID::kWood;
+			break;
+		case RE::COL_LAYER::kWater:
+			result = RE::MATERIAL_ID::kWater;
+			break;
+		case RE::COL_LAYER::kTerrain:
+			result = RE::MATERIAL_ID::kStone;
+			break;
+		case RE::COL_LAYER::kGround:
+			result = RE::MATERIAL_ID::kGrass;
+			break;
+		default:
+			result = RE::MATERIAL_ID::kDirt;
+		}
+		return result;
+	}
+	RE::MATERIAL_ID TaskImpactVFX::GetMaterialID(RE::TES* tes, float* a_position)
+	{
+		using func_t = RE::MATERIAL_ID(*)(RE::TES*, float*);
+		REL::Relocation<func_t> func{ RELOCATION_ID(13203, 13349) };
+		return func(tes, a_position);
 	}
 
 	RE::BGSImpactData* TaskTempFormManager::GetImpactDataTempForm()

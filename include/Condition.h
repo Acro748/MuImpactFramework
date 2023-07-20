@@ -30,6 +30,7 @@ namespace Mus {
 			IsEquippedRightHasKeywordEditorID,
 			IsEquippedPowerOrShout,
 			IsWorn,
+			IsWornSlot,
 			IsWornHasKeyword,
 			IsWornHasKeywordEditorID,
 			IsInFaction,
@@ -57,6 +58,10 @@ namespace Mus {
 
 			IsLeftAttacking, //AggressorOnly
 			IsRightAttacking, //AggressorOnly
+			IsAttackingType, //AggressorOnly
+			IsAttackingHasKeyword, //AggressorOnly
+			IsAttackingHasKeywordEditorID, //AggressorOnly
+
 			IsBlocked, //TargetOnly
 			IsCritical, //TargetOnly
 			IsSneakCritical, //TargetOnly
@@ -64,7 +69,8 @@ namespace Mus {
 			IsPowerAttack, //AggressorOnly
 			IsInanimateObject, //TargetOnly
 
-			None
+			None,
+			Error
 		};
 
 		enum ConditionOption : std::uint8_t {
@@ -82,6 +88,7 @@ namespace Mus {
 			std::string pluginName = "";
 			RE::FormID id = 0;
 			std::string arg = "";
+			std::string arg2 = "";
 		};
 		typedef std::vector<ConditionItem> ConditionItemOr;
 
@@ -97,13 +104,15 @@ namespace Mus {
 			std::vector<RE::BGSSoundDescriptorForm*> SoundDescriptor1Items;
 			std::vector<RE::BGSSoundDescriptorForm*> SoundDescriptor2Items;
 			std::vector<RE::TESEffectShader*> EffectShaderItems;
+
+			std::string fileName;
 			std::string originalCondition[ConditionOption::OptionTotal];
 			std::vector<ConditionItemOr> AND[ConditionOption::OptionTotal];
 		};
 
 		bool RegisterCondition(Condition condition, std::string configPath);
 
-		const concurrency::concurrent_vector<Condition> GetCondition(const RE::TESHitEvent* evn);
+		const concurrency::concurrent_vector<Condition> GetCondition(const HitEvent& e);
 
 		std::size_t ConditionCount() const { return ConditionList.size(); }
 	private:
@@ -111,10 +120,10 @@ namespace Mus {
 		std::unordered_map<std::string, ConditionType> ConditionMap;
 
 		const Condition ParseConditions(Condition condition);
-		const ConditionType GetConditionType(std::string line, std::string& pluginName, RE::FormID& id, std::string& arg);
+		const ConditionType GetConditionType(std::string line, ConditionItem& item);
 
 		bool GetConditionFunction(ConditionItem& item);
-		bool ConditionCheck(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags, Condition condition);
+		bool ConditionCheck(const HitEvent& e, Condition condition);
 
 		inline void Logging(RE::TESObjectREFR* obj, std::uint8_t option, const ConditionItem& OR, bool isTrue) {
 			std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
@@ -147,7 +156,8 @@ namespace Mus {
 			virtual ~ConditionBase() = default;
 
 			virtual void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) = 0;
-			virtual bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) = 0;
+			virtual bool IsValid(std::uint8_t option) { return true; };
+			virtual bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) = 0;
 		protected:
 			bool isLeft = true;
 		};
@@ -156,7 +166,7 @@ namespace Mus {
 		public:
 			IsEquipped() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -165,25 +175,39 @@ namespace Mus {
 		public:
 			IsEquippedType() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
-			std::uint32_t type = 0;
+			RE::WEAPON_TYPE type = RE::WEAPON_TYPE::kHandToHandMelee;
 		};
 
 		class IsEquippedTypeAlt : public ConditionBase {
 		public:
 			IsEquippedTypeAlt() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
-			std::uint32_t type = 0;
+			enum EquippedTypeAlt : std::uint32_t {
+				kHandToHandMelee = 0,
+				kOneHandSword = 1,
+				kOneHandDagger = 2,
+				kOneHandAxe = 3,
+				kOneHandMace = 4,
+				kTwoHandSword = 5,
+				kTwoHandAxe = 6,
+				kTwoHandWarHammer = 7,
+				kBow = 8,
+				kStaff = 9,
+				kCrossbow = 10,
+				kSpell = 11
+			};
+			EquippedTypeAlt type = EquippedTypeAlt::kHandToHandMelee;
 		};
 
 		class IsEquippedHasKeyword : public ConditionBase {
 		public:
 			IsEquippedHasKeyword() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::BGSKeyword* keyword = nullptr;
 		};
@@ -192,7 +216,7 @@ namespace Mus {
 		public:	
 			IsEquippedHasKeywordEditorID() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			std::string keywordEditorID = "";
 		};
@@ -201,7 +225,7 @@ namespace Mus {
 		public:
 			IsEquippedPowerOrShout() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -210,34 +234,45 @@ namespace Mus {
 		public:
 			IsWorn() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
+		};
+
+		class IsWornSlot : public ConditionBase {
+		public:
+			IsWornSlot() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			std::uint32_t slot = 2;
 		};
 
 		class IsWornHasKeyword : public ConditionBase {
 		public:
 			IsWornHasKeyword() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::BGSKeyword* keyword;
+			std::uint32_t slot = 255;
 		};
 
 		class IsWornHasKeywordEditorID : public ConditionBase {
 		public:
 			IsWornHasKeywordEditorID() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			std::string keywordEditorID = "";
+			std::uint32_t slot = 255;
 		};
 
 		class IsInFaction : public ConditionBase {
 		public:
 			IsInFaction() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESFaction* faction = nullptr;
 		};
@@ -246,7 +281,7 @@ namespace Mus {
 		public:
 			HasKeyword() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::BGSKeyword* keyword = nullptr;
 		};
@@ -255,7 +290,7 @@ namespace Mus {
 		public:
 			HasKeywordEditorID() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			std::string keywordEditorID = "";
 		};
@@ -264,7 +299,7 @@ namespace Mus {
 		public:
 			HasMagicEffect() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::EffectSetting* effect = nullptr;
 		};
@@ -273,7 +308,7 @@ namespace Mus {
 		public:
 			HasPerk() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::BGSPerk* perk = nullptr;
 		};
@@ -282,7 +317,7 @@ namespace Mus {
 		public:
 			HasSpell() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -291,7 +326,7 @@ namespace Mus {
 		public:
 			IsActorBase() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -300,7 +335,7 @@ namespace Mus {
 		public:
 			IsActor() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -309,7 +344,7 @@ namespace Mus {
 		public:
 			IsObjectReference() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -318,7 +353,7 @@ namespace Mus {
 		public:
 			IsRace() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -327,7 +362,7 @@ namespace Mus {
 		public:
 			IsClass() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -336,7 +371,7 @@ namespace Mus {
 		public:
 			IsCombatStyle() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::TESForm* form = nullptr;
 		};
@@ -345,119 +380,171 @@ namespace Mus {
 		public:
 			IsFemale() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsChild : public ConditionBase {
 		public:
 			IsChild() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsPlayerTeammate : public ConditionBase {
 		public:
 			IsPlayerTeammate() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsUnique : public ConditionBase {
 		public:
 			IsUnique() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsSneaking : public ConditionBase {
 		public:
 			IsSneaking() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsSprinting : public ConditionBase {
 		public:
 			IsSprinting() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsSwimming : public ConditionBase {
 		public:
 			IsSwimming() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsInAir : public ConditionBase {
 		public:
 			IsInAir() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsDead : public ConditionBase {
 		public:
 			IsDead() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsAttacking : public ConditionBase {
 		public:
 			IsAttacking() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		};
+
+		class IsAttackingType : public ConditionBase {
+		public:
+			IsAttackingType() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			enum AttackingType {
+				kHandToHandMelee = 0,
+				kOneHandSword = 1,
+				kOneHandDagger = 2,
+				kOneHandAxe = 3,
+				kOneHandMace = 4,
+				kTwoHandSword = 5,
+				kTwoHandAxe = 6,
+				kTwoHandWarHammer = 7,
+				kBow = 8,
+				kStaff = 9,
+				kCrossbow = 10,
+				kSpell = 11,
+				kShout = 12
+			};
+			AttackingType type = AttackingType::kHandToHandMelee;
+		};
+
+		class IsAttackingHasKeyword : public ConditionBase {
+		public:
+			IsAttackingHasKeyword() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			RE::BGSKeyword* keyword = nullptr;
+		};
+
+		class IsAttackingHasKeywordEditorID : public ConditionBase {
+		public:
+			IsAttackingHasKeywordEditorID() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			std::string keywordEditorID = "";
 		};
 
 		class IsBlocked : public ConditionBase {
 		public:
 			IsBlocked() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
-
+		
 		class IsCritical : public ConditionBase {
 		public:
 			IsCritical() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsSneakCritical : public ConditionBase {
 		public:
 			IsSneakCritical() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsBash : public ConditionBase {
 		public:
 			IsBash() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsPowerAttack : public ConditionBase {
 		public:
 			IsPowerAttack() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class IsInanimateObject : public ConditionBase {
 		public:
 			IsInanimateObject() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 
 		class NoneCondition : public ConditionBase {
 		public:
 			NoneCondition() = default;
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
-			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		};
 	}
 }

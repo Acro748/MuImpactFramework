@@ -72,7 +72,7 @@ namespace {
         std::uint32_t size;
         std::uint32_t version;
         while (serde->GetNextRecordInfo(type, version, size)) {
-            ImpactManager::Load(serde, type);
+            ImpactManager::Load(serde, type, version);
         }
     }
 
@@ -131,6 +131,7 @@ namespace {
     void InitializeHooking() 
     {
         log::info("Building hook...");
+        hook();
     }
 
     class ConfigLoader : //make late load in case that create a virtual form in other mods
@@ -142,6 +143,7 @@ namespace {
         }
 
     protected:
+        using EventResult = RE::BSEventNotifyControl;
         EventResult ProcessEvent(const RE::MenuOpenCloseEvent* evn, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
             if (!evn || evn->menuName.empty())
                 return EventResult::kContinue;
@@ -162,10 +164,8 @@ namespace {
         if (const auto Menu = RE::UI::GetSingleton(); Menu) {
             Menu->AddEventSink<RE::MenuOpenCloseEvent>(&ConfigLoader::GetSingleton());
         }
-        if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
-            EventHolder->AddEventSink<RE::TESHitEvent>(&ImpactManager::GetSingleton());
-        }
         ConditionManager::GetSingleton().InitialConditionMap();
+        g_HitEventDispatcher.addListener(&ImpactManager::GetSingleton());
     }
 
     void InitializeMessaging() 

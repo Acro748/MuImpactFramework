@@ -3,61 +3,71 @@
 namespace Mus {
 	class ImpactManager_impl
 	{
-		RE::FormID owner;
 	public:
-		ImpactManager_impl() : owner(0) {};
-		ImpactManager_impl(RE::Actor* actor) : owner(actor->formID) {};
+		ImpactManager_impl() {};
 		~ImpactManager_impl() {};
 
-		void Register(bool LeftHand, RE::BGSImpactDataSet* dataSet);
-		void UnRegister(bool LeftHand, RE::BGSImpactDataSet* dataSet);
+		void Register(RE::BGSImpactDataSet* dataSet);
+		void UnRegister(RE::BGSImpactDataSet* dataSet);
 
-		void Register(bool LeftHand, RE::SpellItem* spell);
-		void UnRegister(bool LeftHand, RE::SpellItem* spell);
+		void Register(RE::SpellItem* spell);
+		void UnRegister(RE::SpellItem* spell);
 
-		void Register(bool LeftHand, std::string VFXPath, std::uint8_t VFXType);
-		void UnRegister(bool LeftHand, std::string VFXPath);
+		void Register(std::string VFXPath, std::uint8_t VFXType);
+		void UnRegister(std::string VFXPath);
 
-		void Register(bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
-		void UnRegister(bool LeftHand, RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
+		void Register(RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
+		void UnRegister(RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
 
-		void Register(bool LeftHand, RE::TESEffectShader* effectShader);
-		void UnRegister(bool LeftHand, RE::TESEffectShader* effectShader);
+		void Register(RE::TESEffectShader* effectShader);
+		void UnRegister(RE::TESEffectShader* effectShader);
 
-		void UnRegister(bool LeftHand, uint32_t type);
+		enum RegisterType : std::uint32_t {
+			kNone = 0,
+			kImpactDataSet = 1 << 0,
+			kSpell = 1 << 1,
+			kVFX = 1 << 2,
+			kSound = 1 << 3,
+			kEffectShader = 1 << 4,
 
-		void ProcessHitEvent(const RE::TESHitEvent* evn);
-
-		const std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> GetImpactDataSet(bool LeftHand) {
-			return ImpactDataSet[LeftHand];
+			kAll = kImpactDataSet + kSpell + kVFX + kSound + kEffectShader
 		};
-		const std::unordered_map<RE::FormID, RE::SpellItem*> GetSpell(bool LeftHand) {
-			return Spell[LeftHand];
+
+		void UnRegister(RegisterType type = RegisterType::kAll);
+
+		const std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> GetImpactDataSet() const {
+			return ImpactDataSet;
 		};
-		const std::unordered_map<std::string, std::uint8_t> GetVFX(bool LeftHand) {
-			return VFX[LeftHand];
+		const std::unordered_map<RE::FormID, RE::SpellItem*> GetSpell() const {
+			return Spell;
 		};
-		const std::vector<RE::BGSSoundDescriptorForm*> GetSound(bool LeftHand, bool SecondSound = false) {
-			return Sound[LeftHand][SecondSound];
+		const std::unordered_map<std::string, std::uint8_t> GetVFX() const {
+			return VFX;
 		};
-		const std::unordered_map<RE::FormID, RE::TESEffectShader*> GetEffectShader(bool LeftHand) {
-			return EffectShader[LeftHand];
+		const std::vector<RE::BGSSoundDescriptorForm*> GetSound(bool SecondSound = false) const {
+			return Sound[SecondSound];
 		};
+		const std::unordered_map<RE::FormID, RE::TESEffectShader*> GetEffectShader() const {
+			return EffectShader;
+		};
+
+		std::size_t GetRegisteredCount() const {
+			return ImpactDataSet.size() + Spell.size() + VFX.size() + Sound[0].size() + Sound[1].size() + EffectShader.size();
+		};
+
+		void LoadImpactEffects(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection);
 	private:
-		std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> ImpactDataSet[2];
-		std::unordered_map<RE::FormID, RE::SpellItem*> Spell[2];
-		std::unordered_map<std::string, std::uint8_t> VFX[2];
-		std::vector<RE::BGSSoundDescriptorForm*> Sound[2][2];
-		std::unordered_map<RE::FormID, RE::TESEffectShader*> EffectShader[2];
+		std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> ImpactDataSet;
+		std::unordered_map<RE::FormID, RE::SpellItem*> Spell;
+		std::unordered_map<std::string, std::uint8_t> VFX;
+		std::vector<RE::BGSSoundDescriptorForm*> Sound[2];
+		std::unordered_map<RE::FormID, RE::TESEffectShader*> EffectShader;
 
-		void LoadHitPlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection);
-		void LoadHitPlayImpactData(RE::Actor* aggressor, RE::TESObjectREFR* target, bool LeftHand);
-
-		void PlayImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void CastSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, bool instance = Config::GetSingleton().GetInstanceMode());
-		void PlayVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void PlaySound(bool LeftHand, RE::NiPoint3 hitPoint, bool instance = Config::GetSingleton().GetInstanceMode());
-		void PlayEffectShader(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool LeftHand, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadSound(RE::NiPoint3 hitPoint, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadEffectShader(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
 
 		const RE::BSFixedString HandL = "NPC L Hand [LHnd]";
 		const RE::BSFixedString HandR = "NPC R Hand [RHnd]";

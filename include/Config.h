@@ -37,6 +37,9 @@ namespace Mus {
         [[nodiscard]] inline std::vector<std::uint32_t> GetRemoveList() const noexcept {
             return RemoveList;
         }
+        [[nodiscard]] inline bool GetEnableTimeCounter() const noexcept {
+            return EnableTimeCounter;
+        }
         
     private:
         //Debug
@@ -51,6 +54,7 @@ namespace Mus {
         std::uint32_t SoundLimit = 32;
 
         std::vector<std::uint32_t> RemoveList;
+        bool EnableTimeCounter = false;
     public:
         // trim from start (in place)
         inline static void ltrim(std::string& s)

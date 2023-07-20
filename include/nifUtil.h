@@ -1,5 +1,6 @@
 #pragma once
 
+constexpr RE::NiPoint3 emptyPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 #define MATH_PI       3.14159265358979323846
 namespace Mus::nif {
     namespace debug {

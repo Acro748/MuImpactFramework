@@ -132,6 +132,7 @@ namespace util {
 
 #include "Utility.hpp"
 #include "nifUtil.h"
+#include "Hook.h"
 #include "Condition.h"
 #include "Config.h"
 #include "Tasks.h"

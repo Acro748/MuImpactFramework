@@ -45,7 +45,7 @@ namespace Mus {
         return Directory;
     }
 
-    inline RE::TESForm* GetFormByID(RE::FormID id, std::string_view modname)
+    inline RE::TESForm* GetFormByID(RE::FormID id, std::string_view modname = "")
     {
         if (!modname.empty())
         {
@@ -74,7 +74,7 @@ namespace Mus {
     }
 
     template <typename T>
-    inline T GetFormByID(RE::FormID id, std::string_view modname)
+    inline T GetFormByID(RE::FormID id, std::string_view modname = "")
     {
         return skyrim_cast<T>(GetFormByID(id, modname));
     }

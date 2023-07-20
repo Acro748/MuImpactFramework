@@ -17,7 +17,8 @@ namespace Mus {
 		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiAVObject* mTargetObj;
 
-		RE::NiAVObject* GetObjectByDistance();
+		RE::MATERIAL_ID GetMaterialID(const RE::COL_LAYER& layer);
+		static RE::MATERIAL_ID GetMaterialID(RE::TES* tes, float* a_position);
 	};
 
 	class TaskTempFormManager

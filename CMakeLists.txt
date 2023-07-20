@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.6.0
+        VERSION 0.7.0
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -26,6 +26,7 @@ set(headers
         include/Utility.hpp
         include/nifUtil.h
         include/PapyrusScripts.h
+        include/Hook.h
         include/Condition.h
         include/Config.h
         include/Tasks.h
@@ -36,6 +37,7 @@ set(headers
 set(sources
         src/nifUtil.cpp
         src/PapyrusScripts.cpp
+        src/Hook.cpp
         src/Condition.cpp
         src/Config.cpp
         src/Tasks.cpp
@@ -86,12 +88,14 @@ target_include_directories(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/detours/include>)
 
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         ryml::ryml
         magic_enum::magic_enum
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/detours/lib.X64/detours.lib>
 )
 
 target_precompile_headers(${PROJECT_NAME}

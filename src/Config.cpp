@@ -76,6 +76,10 @@ namespace Mus {
                 {
                     SoundLimit = GetConfigSettingsUintValue(variableValue);
                 }
+                else if (variableName == "EnableTimeCounter")
+                {
+                    EnableTimeCounter = GetConfigSettingsBoolValue(variableValue);
+                }
             }
         }
         logger::info("Config loaded done");
@@ -108,6 +112,7 @@ namespace Mus {
                     if (file.is_open())
                     {
                         ConditionManager::Condition condition;
+                        condition.fileName = filename;
                         std::string presetfile;
 
                         std::string line;

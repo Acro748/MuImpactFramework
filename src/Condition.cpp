@@ -11,7 +11,7 @@ namespace Mus {
 		}
 	}
 
-	bool ConditionManager::ConditionCheck(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags, Condition condition)
+	bool ConditionManager::ConditionCheck(const HitEvent& e, Condition condition)
 	{
 		for (std::uint8_t option = 0; option < ConditionOption::OptionTotal; option++)
 		{
@@ -19,13 +19,13 @@ namespace Mus {
 			RE::Actor* actor = nullptr;
 			if (option == ConditionOption::Aggressor)
 			{
-				obj = aggressor;
-				actor = skyrim_cast<RE::Actor*>(aggressor);
+				obj = e.aggressor;
+				actor = e.aggressor;
 			}
 			else if (option == ConditionOption::Target)
 			{
-				obj = target;
-				actor = skyrim_cast<RE::Actor*>(target);
+				obj = e.target;
+				actor = skyrim_cast<RE::Actor*>(e.target);
 			}
 			if (!obj)
 				return false;
@@ -35,7 +35,7 @@ namespace Mus {
 				{
 					return std::ranges::any_of(AND, [&](auto& OR)
 						{
-							bool isTrue = OR.NOT ? !OR.conditionFunction->Condition(obj, actor, flags) : OR.conditionFunction->Condition(obj, actor, flags);
+							bool isTrue = OR.NOT ? !OR.conditionFunction->Condition(obj, actor, e) : OR.conditionFunction->Condition(obj, actor, e);
 							if (Config::GetSingleton().GetLogLevel() < 2)
 								Logging(obj, option, OR, isTrue);
 							return isTrue;
@@ -48,17 +48,19 @@ namespace Mus {
 		return true;
 	}
 
-	const concurrency::concurrent_vector<ConditionManager::Condition> ConditionManager::GetCondition(const RE::TESHitEvent* evn)
+	const concurrency::concurrent_vector<ConditionManager::Condition> ConditionManager::GetCondition(const HitEvent& e)
 	{
-		RE::TESObjectREFR* aggressor = evn->cause.get();
-		RE::TESObjectREFR* target = evn->target.get();
-		logger::trace("Checking Conditions : Aggressor {} {:x} / Target {} {:x}", aggressor->GetName(), aggressor->formID, target->GetName(), target->formID);
+		logger::trace("Checking Conditions : Aggressor {} {:x} / Target {} {:x}", 
+			e.aggressor ? e.aggressor->GetName() : "", e.aggressor ? e.aggressor->formID : 0, 
+			e.target ? e.target->GetName() : "", e.target ? e.target->formID : 0);
 		concurrency::concurrent_vector<Condition> found_condition;
 		concurrency::parallel_for_each(ConditionList.begin(), ConditionList.end(), [&](auto& condition)
 		{
-			if (ConditionCheck(aggressor, target, evn->flags, condition))
+			if (ConditionCheck(e, condition))
 			{
-				logger::debug("Found Condition on Aggressor {} {:x} / Target {} {:x} ", aggressor->GetName(), aggressor->formID, target->GetName(), target->formID);
+				logger::debug("Found Condition on Aggressor {} {:x} / Target {} {:x} ", 
+					e.aggressor ? e.aggressor->GetName() : "", e.aggressor ? e.aggressor->formID : 0,
+					e.target ? e.target->GetName() : "", e.target ? e.target->formID : 0);
 				found_condition.push_back(condition);
 			}
 		});
@@ -99,10 +101,26 @@ namespace Mus {
 
 						Config::trim(strOr);
 					}
-					Item.type = GetConditionType(strOr, Item.pluginName, Item.id, Item.arg);
-					GetConditionFunction(Item);
-					conditionOr.emplace_back(Item);
-					logger::debug("{}{}{} ...", firstOR ? "" : "OR ", Item.NOT ? "NOT " : "", magic_enum::enum_name(Item.type).data());
+
+					bool invalid = false;
+					if (GetConditionType(strOr, Item) == ConditionType::Error)
+						invalid = true;
+					else
+					{
+						if (GetConditionFunction(Item) && Item.conditionFunction->IsValid(option))
+						{
+							conditionOr.emplace_back(Item);
+							logger::debug("{}{}{} ...", firstOR ? "" : "OR ", Item.NOT ? "NOT " : "", magic_enum::enum_name(Item.type).data());
+						}
+						else
+							invalid = false;
+					}
+
+					if (invalid)
+					{
+						logger::error("Found invalid condition! : {}{}{}", firstOR ? "" : "OR ", Item.NOT ? "NOT " : "", strOr);
+						logger::error("Cause file : {}", condition.fileName);
+					}
 					firstOR = false;
 				}
 				condition.AND[option].emplace_back(conditionOr);
@@ -111,13 +129,22 @@ namespace Mus {
 		return condition;
 	}
 
-	const ConditionManager::ConditionType ConditionManager::GetConditionType(std::string line, std::string& pluginName, RE::FormID& id, std::string& arg)
+	const ConditionManager::ConditionType ConditionManager::GetConditionType(std::string line, ConditionItem& item)
 	{
 		std::vector<std::string> splittedMain = Config::splitMulti(line, "()");
 		if (splittedMain.size() == 0)
+		{
+			item.type = ConditionType::None;
 			return ConditionType::None;
+		}
 		std::string low = lowLetter(splittedMain.at(0));
-		ConditionType type = ConditionMap[low];
+		if (auto found = ConditionMap.find(low); found != ConditionMap.end())
+			item.type = found->second;
+		else
+		{
+			item.type = ConditionType::Error;
+			return ConditionType::Error;
+		}
 
 		if (splittedMain.size() > 1)
 		{
@@ -127,20 +154,26 @@ namespace Mus {
 			if (splitted.size() == 1)
 			{
 				if (MultipleConfig::stringStartsWith(splitted.at(0), "0x"))
-					id = Config::getHex(splitted.at(0));
+					item.id = Config::getHex(splitted.at(0));
 				else
 				{
-					pluginName = splitted.at(0);
-					arg = splitted.at(0);
+					item.pluginName = splitted.at(0);
+					item.arg = splitted.at(0);
 				}
 			}
 			else if (splitted.size() == 2)
 			{
-				pluginName = splitted.at(0);
-				id = Config::getHex(splitted.at(1));
+				item.pluginName = splitted.at(0);
+				item.id = Config::getHex(splitted.at(1));
+			}
+			else if (splitted.size() == 3)
+			{
+				item.pluginName = splitted.at(0);
+				item.id = Config::getHex(splitted.at(1));
+				item.arg2 = splitted.at(2);
 			}
 		}
-		return type;
+		return item.type;
 	}
 
 	bool ConditionManager::GetConditionFunction(ConditionItem& item)
@@ -192,6 +225,9 @@ namespace Mus {
 			break;
 		case ConditionType::IsWorn:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsWorn>();
+			break;
+		case ConditionType::IsWornSlot:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsWornSlot>();
 			break;
 		case ConditionType::IsWornHasKeyword:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsWornHasKeyword>();
@@ -263,6 +299,15 @@ namespace Mus {
 		case ConditionType::IsRightAttacking:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsAttacking>();
 			isLeft = false;
+			break;
+		case ConditionType::IsAttackingType:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsAttackingType>();
+			break;
+		case ConditionType::IsAttackingHasKeyword:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsAttackingHasKeyword>();
+			break;
+		case ConditionType::IsAttackingHasKeywordEditorID:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsAttackingHasKeywordEditorID>();
 			break;
 		case ConditionType::IsBlocked:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsBlocked>();
@@ -353,7 +398,7 @@ namespace Mus {
 			form = GetFormByID(item.id, item.pluginName);
 			isLeft = IsLeft;
 		}
-		bool IsEquipped::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquipped::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -363,51 +408,63 @@ namespace Mus {
 
 		void IsEquippedType::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
-			type = std::stoi(item.arg);
+			type = RE::WEAPON_TYPE(std::stoul(item.arg));
 			isLeft = IsLeft;
 		}
-		bool IsEquippedType::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquippedType::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
 			RE::TESForm* equipped = actor->GetEquippedObject(isLeft);
 			RE::TESObjectWEAP* weapon = equipped ? skyrim_cast<RE::TESObjectWEAP*>(equipped) : nullptr;
-			if (weapon && weapon->weaponData.animationType.underlying() == type)
+			if (weapon && weapon->weaponData.animationType.any(type))
 				return true;
-			else if (!weapon && type == 0)
+			else if (!weapon && type == RE::WEAPON_TYPE::kHandToHandMelee)
 				return true;
 			return false;
 		}
 
 		void IsEquippedTypeAlt::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
-			type = std::stoi(item.arg);
+			type = EquippedTypeAlt(std::stoul(item.arg));
 			isLeft = IsLeft;
 		}
-		bool IsEquippedTypeAlt::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquippedTypeAlt::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
+
 			RE::TESForm* equipped = actor->GetEquippedObject(isLeft);
 			RE::TESObjectWEAP* weapon = equipped ? skyrim_cast<RE::TESObjectWEAP*>(equipped) : nullptr;
-			if (!weapon)
-			{
-				return type == 0;
-			}
-			std::uint32_t weaponType = weapon->weaponData.animationType.underlying();
-			if (weaponType < std::to_underlying(RE::WEAPON_TYPE::kTwoHandAxe)) {
-				return weaponType == type;
-			}
-			else if (weaponType > std::to_underlying(RE::WEAPON_TYPE::kTwoHandAxe)) {
-				return weaponType == (type - 1);
-			}
-			else {
-				if (weaponType == type)
-					return weapon->HasKeywordString("WeapTypeBattleaxe");
-				else if (weaponType == (type - 1))
-					return weapon->HasKeywordString("WeapTypeWarhammer");
-				else
-					return weaponType == type;
+			RE::WEAPON_TYPE weaponType = weapon ? weapon->weaponData.animationType.get() : RE::WEAPON_TYPE::kHandToHandMelee;
+
+			switch (type) {
+			case EquippedTypeAlt::kHandToHandMelee:
+			case EquippedTypeAlt::kOneHandSword:
+			case EquippedTypeAlt::kOneHandDagger:
+			case EquippedTypeAlt::kOneHandAxe:
+			case EquippedTypeAlt::kOneHandMace:
+			case EquippedTypeAlt::kTwoHandSword:
+				return std::to_underlying(weaponType) == type;
+				break;
+
+			case EquippedTypeAlt::kTwoHandAxe:
+				return weaponType == RE::WEAPON_TYPE::kTwoHandAxe && weapon ? weapon->HasKeywordString("WeapTypeBattleaxe") : false;
+				break;
+			case EquippedTypeAlt::kTwoHandWarHammer:
+				return weaponType == RE::WEAPON_TYPE::kTwoHandAxe && weapon ? weapon->HasKeywordString("WeapTypeWarhammer") : false;
+				break;
+
+			case EquippedTypeAlt::kBow:
+			case EquippedTypeAlt::kStaff:
+			case EquippedTypeAlt::kCrossbow:
+				return std::to_underlying(e.weaponType) == (type - 1);
+				break;
+
+			case EquippedTypeAlt::kSpell:
+				RE::SpellItem* spell = equipped ? skyrim_cast<RE::SpellItem*>(equipped) : nullptr;
+				return spell ? true : false;
+				break;
 			}
 			return false;
 		}
@@ -417,7 +474,7 @@ namespace Mus {
 			keyword = GetFormByID<RE::BGSKeyword*>(item.id, item.pluginName);
 			isLeft = IsLeft;
 		}
-		bool IsEquippedHasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquippedHasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !keyword)
 				return false;
@@ -442,7 +499,7 @@ namespace Mus {
 			keywordEditorID = item.arg;
 			isLeft = IsLeft;
 		}
-		bool IsEquippedHasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquippedHasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -466,7 +523,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsEquippedPowerOrShout::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsEquippedPowerOrShout::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -474,44 +531,71 @@ namespace Mus {
 			if (PowerOrShout && PowerOrShout->formID == form->formID)
 				return true;
 			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
-			if (!aiprocess || !aiprocess->high || !aiprocess->high->currentShout)
-				return false;
-			RE::TESShout* shout = aiprocess->high->currentShout;
-			return shout->formID == form->formID;
+			if (aiprocess && aiprocess->high && aiprocess->high->currentShout)
+				return aiprocess->high->currentShout->formID == form->formID;
+			return false;
 		}
 
 		void IsWorn::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsWorn::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsWorn::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
 			return form && actor->GetWornArmor(form->formID);
 		}
 
+		void IsWornSlot::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			slot = std::stoul(item.arg) - 30;
+		}
+		bool IsWornSlot::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor)
+				return false;
+			auto wornArmor = actor->GetWornArmor(RE::BIPED_MODEL::BipedObjectSlot(1 << slot));
+			if (slot == 2)
+			{
+				return wornArmor ? wornArmor == actor->GetSkin() : false;
+			}
+			return wornArmor ? true : false;
+		}
+
 		void IsWornHasKeyword::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 			keyword = GetFormByID<RE::BGSKeyword*>(item.id, item.pluginName);
+			if (!item.arg2.empty())
+				slot = std::stoul(item.arg2) - 30;
 		}
-		bool IsWornHasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsWornHasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !keyword)
 				return false;
-			RE::TESObjectARMO* armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot::kBody);
+			RE::TESObjectARMO* armor = nullptr;
+			if (slot == 255)
+				armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot::kBody);
+			else
+				armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot(1 << slot));
 			return armor && armor->HasKeyword(keyword);
 		}
 
 		void IsWornHasKeywordEditorID::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 			keywordEditorID = item.arg;
+			if (!item.arg2.empty())
+				slot = std::stoul(item.arg2) - 30;
 		}
-		bool IsWornHasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsWornHasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
-			RE::TESObjectARMO* armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot::kBody);
+			RE::TESObjectARMO* armor = nullptr;
+			if (slot == 255)
+				armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot::kBody);
+			else
+				armor = actor->GetWornArmor(RE::BGSBipedObjectForm::BipedObjectSlot(1 << slot));
 			return armor && armor->HasKeywordString(keywordEditorID);
 		}
 
@@ -519,7 +603,7 @@ namespace Mus {
 		{
 			faction = GetFormByID<RE::TESFaction*>(item.id, item.pluginName);
 		}
-		bool IsInFaction::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsInFaction::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !faction)
 				return false;
@@ -530,7 +614,7 @@ namespace Mus {
 		{
 			keyword = GetFormByID<RE::BGSKeyword*>(item.id, item.pluginName);
 		}
-		bool HasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool HasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!keyword)
 				return false;
@@ -546,7 +630,7 @@ namespace Mus {
 		{
 			keywordEditorID = item.arg;
 		}
-		bool HasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool HasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (actor)
 				return actor->HasKeywordString(keywordEditorID.c_str());
@@ -558,7 +642,7 @@ namespace Mus {
 		{
 			effect = GetFormByID<RE::EffectSetting*>(item.id, item.pluginName);
 		}
-		bool HasMagicEffect::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool HasMagicEffect::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !effect)
 				return false;
@@ -570,7 +654,7 @@ namespace Mus {
 		{
 			perk = GetFormByID<RE::BGSPerk*>(item.id, item.pluginName);
 		}
-		bool HasPerk::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool HasPerk::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !perk)
 				return false;
@@ -581,7 +665,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool HasSpell::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool HasSpell::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -604,7 +688,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsActorBase::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsActorBase::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -616,7 +700,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsActor::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsActor::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -627,7 +711,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsObjectReference::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsObjectReference::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (actor || !ref || !form)
 				return false;
@@ -638,7 +722,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsRace::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsRace::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -650,7 +734,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsClass::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsClass::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -662,7 +746,7 @@ namespace Mus {
 		{
 			form = GetFormByID(item.id, item.pluginName);
 		}
-		bool IsCombatStyle::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsCombatStyle::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor || !form)
 				return false;
@@ -673,7 +757,7 @@ namespace Mus {
 		void IsFemale::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsFemale::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsFemale::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -684,7 +768,7 @@ namespace Mus {
 		void IsChild::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsChild::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsChild::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -694,7 +778,7 @@ namespace Mus {
 		void IsPlayerTeammate::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsPlayerTeammate::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsPlayerTeammate::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -704,7 +788,7 @@ namespace Mus {
 		void IsUnique::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsUnique::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsUnique::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -715,7 +799,7 @@ namespace Mus {
 		void IsSneaking::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsSneaking::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsSneaking::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -725,7 +809,7 @@ namespace Mus {
 		void IsSprinting::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsSprinting::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsSprinting::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -736,7 +820,7 @@ namespace Mus {
 		void IsSwimming::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsSwimming::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsSwimming::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -747,7 +831,7 @@ namespace Mus {
 		void IsInAir::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsInAir::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsInAir::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -757,7 +841,7 @@ namespace Mus {
 		void IsDead::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsDead::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsDead::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
@@ -768,64 +852,170 @@ namespace Mus {
 		{
 			isLeft = IsLeft;
 		}
-		bool IsAttacking::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsAttacking::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsAttacking::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			if (!actor)
 				return false;
-			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
-			return aiprocess && aiprocess->high && aiprocess->high->attackData && !(aiprocess->high->attackData->IsLeftAttack() ^ isLeft);
+			return isLeft ? e.attackHand.any(HitEvent::AttackHand::Left) : e.attackHand.any(HitEvent::AttackHand::Right);
+		}
+
+		void IsAttackingType::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			type = AttackingType(std::stoul(item.arg));
+		}
+		bool IsAttackingType::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsAttackingType::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor)
+				return false;
+			switch (type) {
+			case AttackingType::kHandToHandMelee:
+			case AttackingType::kOneHandSword:
+			case AttackingType::kOneHandDagger:
+			case AttackingType::kOneHandAxe:
+			case AttackingType::kOneHandMace:
+			case AttackingType::kTwoHandSword:
+				return std::to_underlying(e.weaponType) == type;
+				break;
+
+			case AttackingType::kTwoHandAxe:
+				return e.weaponType == RE::WEAPON_TYPE::kTwoHandAxe && e.weapon->HasKeywordString("WeapTypeBattleaxe");
+				break;
+			case AttackingType::kTwoHandWarHammer:
+				return e.weaponType == RE::WEAPON_TYPE::kTwoHandAxe && e.weapon->HasKeywordString("WeapTypeWarhammer");
+				break;
+
+			case AttackingType::kBow:
+			case AttackingType::kStaff:
+			case AttackingType::kCrossbow:
+				return std::to_underlying(e.weaponType) == (type - 1);
+				break;
+
+			case AttackingType::kSpell:
+				return e.attackType == HitEvent::AttackType::Spell;
+				break;
+			case AttackingType::kShout:
+				return e.attackType == HitEvent::AttackType::Shout;
+				break;
+			}
+			return false;
+		}
+
+		void IsAttackingHasKeyword::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			keyword = GetFormByID<RE::BGSKeyword*>(item.id, item.pluginName);
+		}
+		bool IsAttackingHasKeyword::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsAttackingHasKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor || !keyword)
+				return false;
+			if (e.weapon)
+				return e.weapon->HasKeyword(keyword);
+			else if (e.spell)
+				return e.spell->HasKeyword(keyword);
+			else if (e.magicItem)
+				return e.magicItem->HasKeyword(keyword);
+			return false;
+		}
+
+		void IsAttackingHasKeywordEditorID::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			keywordEditorID = item.arg;
+		}
+		bool IsAttackingHasKeywordEditorID::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsAttackingHasKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor)
+				return false;
+			if (e.weapon)
+				return e.weapon->HasKeywordString(keywordEditorID);
+			else if (e.magicItem)
+				return e.magicItem->HasKeywordString(keywordEditorID);
+			return false;
 		}
 
 		void IsBlocked::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsBlocked::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsBlocked::IsValid(std::uint8_t option)
 		{
-			return flags.all(RE::TESHitEvent::Flag::kHitBlocked);
+			return option == ConditionManager::ConditionOption::Target;
+		}
+		bool IsBlocked::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			return e.flags.any(RE::HitData::Flag::kBlocked, RE::HitData::Flag::kBlockWithWeapon);
 		}
 
 		void IsCritical::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsCritical::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsCritical::IsValid(std::uint8_t option)
 		{
-			if (!actor)
-				return false;
-			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
-			return aiprocess && aiprocess->middleHigh && aiprocess->middleHigh->lastHitData && aiprocess->middleHigh->lastHitData->flags.all(RE::HitData::Flag::kCritical);
+			return option == ConditionManager::ConditionOption::Target;
+		}
+		bool IsCritical::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			return e.flags.any(RE::HitData::Flag::kCritical);
 		}
 
 		void IsSneakCritical::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsSneakCritical::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsSneakCritical::IsValid(std::uint8_t option)
 		{
-			if (!actor)
-				return false;
-			RE::AIProcess* aiprocess = actor->GetActorRuntimeData().currentProcess;
-			return aiprocess && aiprocess->middleHigh && aiprocess->middleHigh->lastHitData && aiprocess->middleHigh->lastHitData->flags.all(RE::HitData::Flag::kSneakAttack);
+			return option == ConditionManager::ConditionOption::Target;
+		}
+		bool IsSneakCritical::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			return e.flags.any(RE::HitData::Flag::kSneakAttack);
 		}
 
 		void IsBash::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsBash::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsBash::IsValid(std::uint8_t option)
 		{
-			return flags.all(RE::TESHitEvent::Flag::kBashAttack);
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsBash::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			return e.flags.any(RE::HitData::Flag::kBash, RE::HitData::Flag::kTimedBash);
 		}
 
 		void IsPowerAttack::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsPowerAttack::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsPowerAttack::IsValid(std::uint8_t option)
 		{
-			return flags.all(RE::TESHitEvent::Flag::kPowerAttack);
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsPowerAttack::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			return e.flags.any(RE::HitData::Flag::kPowerAttack);
 		}
 
 		void IsInanimateObject::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool IsInanimateObject::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool IsInanimateObject::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Target;
+		}
+		bool IsInanimateObject::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			return actor ? false : true;
 		}
@@ -833,7 +1023,7 @@ namespace Mus {
 		void NoneCondition::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 		}
-		bool NoneCondition::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, RE::stl::enumeration<RE::TESHitEvent::Flag, std::uint8_t> flags)
+		bool NoneCondition::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
 		{
 			return true;
 		}
