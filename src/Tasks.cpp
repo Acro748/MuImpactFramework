@@ -3,7 +3,7 @@
 namespace Mus {
 	void TaskImpactVFX::Run()
 	{
-		if (!mImpactData || !mTarget)
+		if (!mImpactData || !mAggressor)
 			return;
 
 		RE::BGSMaterialType* material = nullptr;
@@ -14,45 +14,52 @@ namespace Mus {
 			else
 				material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
 		}
-		else if (mTarget->loadedData && mTarget->loadedData->data3D) //is it only the player who can attack a non actor?
+		else //non actor
 		{
-			RE::MATERIAL_ID materialID = RE::TES::GetSingleton()->GetLandMaterialType(emptyPoint);
+			RE::MATERIAL_ID materialID = mMaterialID; 
 			if (materialID == RE::MATERIAL_ID::kNone)
 			{
-				auto root = mTarget->loadedData->data3D.get();
-				RE::BSVisit::TraverseScenegraphCollision(root, [&](RE::bhkNiCollisionObject* colObj) {
-					const auto rigidBody = colObj->body ? colObj->body->AsBhkRigidBody() : nullptr;
-					if (!rigidBody || !rigidBody->referencedObject)
-						return RE::BSVisit::BSVisitControl::kContinue;
+				if (mTarget && mTarget->loadedData && mTarget->loadedData->data3D)
+				{
+					materialID = RE::TES::GetSingleton()->GetLandMaterialType(emptyPoint);
+					if (materialID == RE::MATERIAL_ID::kNone)
+					{
+						auto root = mTarget->loadedData->data3D.get();
+						RE::BSVisit::TraverseScenegraphCollision(root, [&](RE::bhkNiCollisionObject* colObj) {
+							const auto rigidBody = colObj->body ? colObj->body->AsBhkRigidBody() : nullptr;
+							if (!rigidBody || !rigidBody->referencedObject)
+								return RE::BSVisit::BSVisitControl::kContinue;
 
-					const auto havokRigidBody = static_cast<RE::hkpRigidBody*>(rigidBody->referencedObject.get());
-					if (!havokRigidBody)
-						return RE::BSVisit::BSVisitControl::kContinue;
+							const auto havokRigidBody = static_cast<RE::hkpRigidBody*>(rigidBody->referencedObject.get());
+							if (!havokRigidBody)
+								return RE::BSVisit::BSVisitControl::kContinue;
 
-					const auto collidable = havokRigidBody->GetCollidable();
-					if (!collidable)
-						return RE::BSVisit::BSVisitControl::kContinue;
+							const auto collidable = havokRigidBody->GetCollidable();
+							if (!collidable)
+								return RE::BSVisit::BSVisitControl::kContinue;
 
-					const auto colLayer = static_cast<RE::COL_LAYER>(collidable->broadPhaseHandle.collisionFilterInfo & 0x7F);
-					materialID = GetMaterialID(colLayer);
-					if (materialID != RE::MATERIAL_ID::kNone)
-						return RE::BSVisit::BSVisitControl::kStop;
+							const auto colLayer = static_cast<RE::COL_LAYER>(collidable->broadPhaseHandle.collisionFilterInfo & 0x7F);
+							materialID = GetMaterialID(colLayer);
+							if (materialID != RE::MATERIAL_ID::kNone)
+								return RE::BSVisit::BSVisitControl::kStop;
 
-					return RE::BSVisit::BSVisitControl::kContinue;
-					});
+							return RE::BSVisit::BSVisitControl::kContinue;
+							});
+					}
+					if (materialID == RE::MATERIAL_ID::kNone)
+						materialID = RE::MATERIAL_ID::kDirt;
+				}
+				else
+					materialID = RE::MATERIAL_ID::kGrass;
 			}
-			if (materialID == RE::MATERIAL_ID::kNone)
-				materialID = RE::MATERIAL_ID::kDirt;
 			material = RE::BGSMaterialType::GetMaterialType(materialID);
 		}
-		else //maybe ground only
-			material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kGrass);
 
 		auto found = material ? mImpactData->impactMap.find(material) : mImpactData->impactMap.end();
 		if (found == mImpactData->impactMap.end())
 			return;
 		
-		logger::debug("material type {} for {:x} {}", std::to_underlying(found->first->materialID), mTarget->formID, mTarget->GetName());
+		logger::debug("material type {} for {:x} {}", static_cast<std::uint32_t>(found->first->materialID), mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
 		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, found->second->GetModel(), mHitDirection, mHitPoint, 1.0f, 7, mTargetObj);
 		if (particle)
 		{
@@ -60,13 +67,16 @@ namespace Mus {
 			processLists->globalEffectsLock.Lock();
 			processLists->globalTempEffects.emplace_back(particle);
 			processLists->globalEffectsLock.Unlock();
-			logger::trace("create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget->formID, mTarget->GetName());
+			logger::trace("create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
 		}
 		else
 		{
-			logger::error("couldn't create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget->formID, mTarget->GetName());
+			logger::error("couldn't create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
 			return;
 		}
+
+		if (!mTarget)
+			return;
 
 		RE::BSSoundHandle handle1, handle2;
 		if (found->second->sound1)
@@ -118,6 +128,7 @@ namespace Mus {
 
 	RE::BGSImpactData* TaskTempFormManager::GetImpactDataTempForm()
 	{
+		static std::mutex m_lock;
 		std::lock_guard<std::mutex> locker(m_lock);
 		static std::vector<RE::BGSImpactData*> impactDataList;
 		if (impactDataList.size() == 0)
@@ -141,6 +152,7 @@ namespace Mus {
 	}
 	RE::BGSArtObject* TaskTempFormManager::GetArtObjectTempForm()
 	{
+		static std::mutex m_lock;
 		std::lock_guard<std::mutex> locker(m_lock);
 		static std::vector<RE::BGSArtObject*> artObjectList;
 		if (artObjectList.size() == 0)
@@ -230,6 +242,19 @@ namespace Mus {
 		return;
 	}
 	void TaskEffectShader::Dispose()
+	{
+		delete this;
+	}
+
+	void TaskArtObject::Run()
+	{
+		if (!mTarget || !mArtObject)
+			return;
+		auto artObject = mTarget->InstantiateHitArt(mArtObject, 0.0f, nullptr, false, false);
+		logger::debug("{}create EffectShader for {:x} {}", artObject ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
+		return;
+	}
+	void TaskArtObject::Dispose()
 	{
 		delete this;
 	}

@@ -51,6 +51,15 @@ namespace Mus {
 		EffectShader.erase(effectShader->formID);
 	}
 
+	void ImpactManager_impl::Register(RE::BGSArtObject* artObject)
+	{
+		ArtObject[artObject->formID] = artObject;
+	}
+	void ImpactManager_impl::UnRegister(RE::BGSArtObject* artObject)
+	{
+		ArtObject.erase(artObject->formID);
+	}
+
 	void ImpactManager_impl::UnRegister(RegisterType type)
 	{
 		if (type & RegisterType::kImpactDataSet)
@@ -65,26 +74,34 @@ namespace Mus {
 			Sound[1].clear();
 		}
 		if (type & RegisterType::kEffectShader)
-		{
 			EffectShader.clear();
-		}
+		if (type & RegisterType::kArtObject)
+			ArtObject.clear();
 	}
 
-	void ImpactManager_impl::LoadImpactEffects(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection)
+	void ImpactManager_impl::LoadImpactEffects(const HitEvent& e)
 	{
-		LoadImpactData(aggressor, target, hitPosition, hitDirection);
-		LoadSpell(aggressor, target);
-		LoadVFX(aggressor, target, hitPosition, hitDirection);
-		LoadSound(hitPosition);
-		LoadEffectShader(aggressor, target);
+		if (ImpactDataSet.size() > 0)
+			LoadImpactData(e.aggressor, e.target, e.hitPosition, e.hitDirection, e.materialID);
+		if (Spell.size() > 0)
+			LoadSpell(e.aggressor, e.target);
+		if (VFX.size() > 0)
+			LoadVFX(e.aggressor, e.target, e.hitPosition, e.hitDirection);
+		if (Sound[0].size() + Sound[1].size() > 0)
+			LoadSound(e.hitPosition);
+		if (EffectShader.size() > 0)
+			LoadEffectShader(e.aggressor, e.target);
+		if (ArtObject.size() > 0)
+			LoadArtObject(e.aggressor, e.target);
+		UnRegister(RegisterType::kAll);
 	}
 
-	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj, bool instance)
+	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
 		for (const auto& impactData : ImpactDataSet)
 		{
-			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPoint, hitDirection, targetObj);
+			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPoint, hitDirection, materialID, targetObj);
 			if (!g_task || instance)
 			{
 				newTask->Run();
@@ -165,6 +182,24 @@ namespace Mus {
 		for (const auto& effectShader : EffectShader)
 		{
 			TaskEffectShader* newTask = new TaskEffectShader(aggressor, target, effectShader.second);
+			if (!g_task || instance)
+			{
+				newTask->Run();
+				newTask->Dispose();
+			}
+			else
+			{
+				g_task->AddTask(newTask);
+			}
+		}
+	}
+
+	void ImpactManager_impl::LoadArtObject(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance)
+	{
+		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
+		for (const auto& artObject : ArtObject)
+		{
+			TaskArtObject* newTask = new TaskArtObject(aggressor, target, artObject.second);
 			if (!g_task || instance)
 			{
 				newTask->Run();

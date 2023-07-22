@@ -31,6 +31,9 @@ namespace Mus {
         [[nodiscard]] inline std::uint32_t GetSoundLimit() const noexcept {
             return SoundLimit;
         }
+        [[nodiscard]] inline bool GetProxyProjectileEnable() const noexcept {
+            return ProxyProjectileEnable;
+        }
         [[nodiscard]] inline std::vector<std::uint32_t> GetRemoveList() const noexcept {
             return RemoveList;
         }
@@ -49,6 +52,7 @@ namespace Mus {
         std::uint32_t ArtObjectVFXLimit = 32;
         std::uint32_t SoundLimit = 32;
 
+        bool ProxyProjectileEnable = true;
         std::vector<std::uint32_t> RemoveList;
         bool EnableTimeCounter = false;
     public:

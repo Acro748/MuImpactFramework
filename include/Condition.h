@@ -122,6 +122,7 @@ namespace Mus {
 			std::vector<RE::BGSSoundDescriptorForm*> SoundDescriptor1Items;
 			std::vector<RE::BGSSoundDescriptorForm*> SoundDescriptor2Items;
 			std::vector<RE::TESEffectShader*> EffectShaderItems;
+			std::vector<RE::BGSArtObject*> ArtObjectItems;
 
 			std::string fileName;
 			std::string originalCondition[ConditionOption::OptionTotal];

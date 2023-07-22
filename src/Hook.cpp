@@ -79,32 +79,33 @@ namespace Mus {
 		return damage;
 	}
 
-	struct ProjectileHit : RE::Projectile
+	class ProjectileHit : public RE::FlameProjectile
 	{
 		MEMBER_FN_PREFIX(ProjectileHit);
 
 	public:
-		DEFINE_MEMBER_FN_HOOK(onProjectileHit, void*, ProjectileHitFunction.address(), RE::TESObjectREFR*, RE::NiPoint3*, uintptr_t, std::uint32_t, std::uint8_t);
+		DEFINE_MEMBER_FN_HOOK(onProjectileHit, RE::Actor*, ProjectileHitFunction.address(), RE::TESObjectREFR* target, RE::NiPoint3& position, RE::NiPoint3& direction, std::uint32_t materialID, std::uint8_t flags);
 
-		void* onProjectileHit(RE::TESObjectREFR* target, RE::NiPoint3* point, uintptr_t unk1, std::uint32_t unk2, std::uint8_t unk3)
+		RE::Actor* onProjectileHit(RE::TESObjectREFR* target, RE::NiPoint3& position, RE::NiPoint3& direction, std::uint32_t materialID, std::uint8_t flags)
 		{
-			void* ref = CALL_MEMBER_FN(this, onProjectileHit)(target, point, unk1, unk2, unk3);
+			//RE::Actor* actorTarget = CALL_MEMBER_FN(this, onProjectileHit)(target, position, direction, materialID, flags);
 			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
-
-			HitEvent e; 
+			RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
+			HitEvent e;
 			e.eventType = HitEvent::EventType::Projectile;
-
 			e.aggressor = skyrim_cast<RE::Actor*>(this->GetProjectileRuntimeData().shooter.get().get());
+			if (!e.aggressor)
+				return actorTarget;
 			e.target = target;
-			e.hitPosition = *point;
-			e.hitDirection = this->GetAngle();
+			e.hitPosition = position;
+			e.hitDirection = direction;
+			e.materialID = RE::MATERIAL_ID(materialID);
+
+			RevertFunction(e);
+			if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
+				return actorTarget;
 
 			e.projectile = this;
-			if (!e.aggressor)
-				return ref;
-			RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(e.target);
-			if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
-				return ref;
 			if (auto aggressorProcess = e.aggressor->GetActorRuntimeData().currentProcess;
 				aggressorProcess && aggressorProcess->high && aggressorProcess->high->currentShout)
 			{
@@ -144,7 +145,7 @@ namespace Mus {
 			{
 				if (actorTarget)
 				{
-					return ref; //use TESHitEvent instead of this
+					return actorTarget; //use TESHitEvent instead of this
 
 					if (auto targetProcess = actorTarget->GetActorRuntimeData().currentProcess;
 						targetProcess && targetProcess->middleHigh && targetProcess->middleHigh->lastHitData)
@@ -162,7 +163,7 @@ namespace Mus {
 				e.attackType = HitEvent::AttackType::Weapon;
 
 				g_HitEventDispatcher.dispatch(e);
-				return ref; //target is not actor, so skip the damage calculate
+				return actorTarget; //target is not actor, so skip the damage calculate
 			}
 
 			//damage calculate
@@ -174,32 +175,32 @@ namespace Mus {
 					e.damage += GetMagicEffectInfo(magicEffect, targetActorValues, e);
 				}
 			}
-
 			g_HitEventDispatcher.dispatch(e);
-			return ref;
+			return actorTarget;
 		}
 
 	private:
-		RE::BGSPerk* FirePerk[2];
-		RE::BGSPerk* FrostPerk[2];
-		RE::BGSPerk* ShockPerk[2];
-		bool isInitial = false;
-
-		bool Initial() {
-			if (isInitial)
-				return isInitial;
-			
-			FirePerk[0] = GetFormByID<RE::BGSPerk*>(0x581E7); //1.25
-			FirePerk[1] = GetFormByID<RE::BGSPerk*>(0x10FCF8); //1.5
-			FrostPerk[0] = GetFormByID<RE::BGSPerk*>(0x581EA); //1.25
-			FrostPerk[1] = GetFormByID<RE::BGSPerk*>(0x10FCF9); //1.5
-			ShockPerk[0] = GetFormByID<RE::BGSPerk*>(0x58200); //1.25
-			ShockPerk[1] = GetFormByID<RE::BGSPerk*>(0x10FCFA); //1.5
-
-			logger::info("initial test");
-
-			isInitial = FirePerk[0] && FirePerk[1] && FrostPerk[0] && FrostPerk[1] && ShockPerk[0] && ShockPerk[1];
-			return isInitial;
+		void RevertFunction(const HitEvent& e)
+		{
+			if (auto weapon = this->GetProjectileRuntimeData().weaponSource; weapon && weapon->impactDataSet)
+			{
+				ImpactManager::GetSingleton().Register(weapon->impactDataSet);
+			}
+			if (auto magicEffect = this->GetProjectileRuntimeData().spell; magicEffect)
+			{
+				for (const auto& effect : magicEffect->effects)
+				{
+					if (!effect || !effect->baseEffect)
+						continue;
+					if (effect->baseEffect->data.effectShader)
+						ImpactManager::GetSingleton().Register(effect->baseEffect->data.effectShader);
+					if (effect->baseEffect->data.hitEffectArt)
+						ImpactManager::GetSingleton().Register(effect->baseEffect->data.hitEffectArt);
+					if (effect->baseEffect->data.impactDataSet)
+						ImpactManager::GetSingleton().Register(effect->baseEffect->data.impactDataSet);
+				}
+			}
+			ImpactManager::GetSingleton().LoadImpactEffects(e);
 		}
 	};
 
@@ -279,7 +280,8 @@ namespace Mus {
 		logger::info("Skyrim Hooking...");
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
-		DetourAttach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
+		if (Config::GetSingleton().GetProxyProjectileEnable())
+			DetourAttach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
 		DetourTransactionCommit();
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
@@ -291,7 +293,8 @@ namespace Mus {
 	{
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
-		DetourDetach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
+		if (Config::GetSingleton().GetProxyProjectileEnable())
+			DetourDetach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
 		DetourTransactionCommit();
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {

@@ -61,9 +61,7 @@ namespace Mus {
 			}
 		}
 
-		if (GetRegisteredCount() != 0)
-			LoadImpactEffects(e.aggressor, e.target, e.hitPosition, e.hitDirection);
-		UnRegister();
+		LoadImpactEffects(e);
 
 		TimeLogger(true, Config::GetSingleton().GetEnableTimeCounter());
 	}

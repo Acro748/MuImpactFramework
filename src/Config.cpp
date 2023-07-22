@@ -72,6 +72,10 @@ namespace Mus {
                 {
                     SoundLimit = GetConfigSettingsUintValue(variableValue);
                 }
+                else if (variableName == "ProxyProjectileEnable")
+                {
+                    ProxyProjectileEnable = GetConfigSettingsBoolValue(variableValue);
+                }
                 else if (variableName == "EnableTimeCounter")
                 {
                     EnableTimeCounter = GetConfigSettingsBoolValue(variableValue);
@@ -280,6 +284,35 @@ namespace Mus {
                                         auto form = GetFormByID<RE::TESEffectShader*>(id, pluginname);
                                         if (form)
                                             condition.EffectShaderItems.emplace_back(form);
+                                    }
+                                    isAggressor = false;
+                                    isTarget = false;
+                                }
+                                else if (variableName == "ArtObject")
+                                {
+                                    auto values = split(variableValue, ",");
+                                    if (values.size() == 0)
+                                        continue;
+                                    for (auto& value : values)
+                                    {
+                                        trim(value);
+                                        RE::FormID id;
+                                        std::string pluginname;
+                                        auto plugins = split(value, "|");
+                                        if (plugins.size() == 1)
+                                        {
+                                            id = getHex(plugins.at(0));
+                                        }
+                                        else if (plugins.size() == 2)
+                                        {
+                                            pluginname = plugins.at(0);
+                                            id = getHex(plugins.at(1));
+                                        }
+                                        else
+                                            continue;
+                                        auto form = GetFormByID<RE::BGSArtObject*>(id, pluginname);
+                                        if (form)
+                                            condition.ArtObjectItems.emplace_back(form);
                                     }
                                     isAggressor = false;
                                     isTarget = false;

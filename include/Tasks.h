@@ -4,8 +4,8 @@ namespace Mus {
 	class TaskImpactVFX : public SKSE::detail::TaskDelegate
 	{
 	public:
-		TaskImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr)
-			: mImpactData(impactData), mAggressor(aggressor), mTarget(target), mHitPoint(hitPoint), mHitDirection(hitDirection), mTargetObj(targetObj) {};
+		TaskImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj = nullptr)
+			: mImpactData(impactData), mAggressor(aggressor), mTarget(target), mHitPoint(hitPoint), mHitDirection(hitDirection), mMaterialID(materialID), mTargetObj(targetObj) {};
 
 		void Run();
 		void Dispose();
@@ -16,6 +16,7 @@ namespace Mus {
 		RE::NiPoint3 mHitPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiAVObject* mTargetObj;
+		RE::MATERIAL_ID mMaterialID;
 
 		RE::MATERIAL_ID GetMaterialID(const RE::COL_LAYER& layer);
 		static RE::MATERIAL_ID GetMaterialID(RE::TES* tes, float* a_position);
@@ -37,8 +38,6 @@ namespace Mus {
 
 		template <typename T>
 		T* GetNewForm();
-
-		std::mutex m_lock;
 	};
 
 	class TaskVFX : public SKSE::detail::TaskDelegate
@@ -82,6 +81,20 @@ namespace Mus {
 		RE::TESObjectREFR* mAggressor = nullptr;
 		RE::TESObjectREFR* mTarget = nullptr;
 		RE::TESEffectShader* mEffectShader = nullptr;
+	};
+
+	class TaskArtObject : public SKSE::detail::TaskDelegate
+	{
+	public:
+		TaskArtObject(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::BGSArtObject* artObject)
+			: mAggressor(aggressor), mTarget(target), mArtObject(artObject) {};
+
+		void Run();
+		void Dispose();
+	private:
+		RE::TESObjectREFR* mAggressor = nullptr;
+		RE::TESObjectREFR* mTarget = nullptr;
+		RE::BGSArtObject* mArtObject = nullptr;
 	};
 
 	class TaskSound : public SKSE::detail::TaskDelegate
