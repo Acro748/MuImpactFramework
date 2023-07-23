@@ -9,6 +9,7 @@ namespace Mus {
 
 		void Run();
 		void Dispose();
+
 	private:
 		RE::BGSImpactDataSet* mImpactData = nullptr;
 		RE::TESObjectREFR* mAggressor = nullptr;

@@ -79,130 +79,100 @@ namespace Mus {
 		return damage;
 	}
 
-	class ProjectileHit : public RE::FlameProjectile
+	typedef RE::Actor* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, std::uint32_t materialID, std::uint8_t flags);
+	REL::Relocation<_onProjectileHit> onProjectileHit_(ProjectileHitFunction);
+	RE::Actor* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, std::uint32_t materialID, std::uint8_t flags)
 	{
-		MEMBER_FN_PREFIX(ProjectileHit);
+		RE::Actor* ref = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+		TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
+		RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
+		HitEvent e;
+		e.eventType = HitEvent::EventType::Projectile;
+		e.aggressor = skyrim_cast<RE::Actor*>(projectile->GetProjectileRuntimeData().shooter.get().get());
+		if (!e.aggressor)
+			return ref;
+		e.target = target;
+		e.hitPosition = position;
+		e.hitDirection = direction;
+		e.materialID = RE::MATERIAL_ID(materialID);
 
-	public:
-		DEFINE_MEMBER_FN_HOOK(onProjectileHit, RE::Actor*, ProjectileHitFunction.address(), RE::TESObjectREFR* target, RE::NiPoint3& position, RE::NiPoint3& direction, std::uint32_t materialID, std::uint8_t flags);
+		if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
+			return ref;
 
-		RE::Actor* onProjectileHit(RE::TESObjectREFR* target, RE::NiPoint3& position, RE::NiPoint3& direction, std::uint32_t materialID, std::uint8_t flags)
+		e.projectile = projectile;
+		if (auto aggressorProcess = e.aggressor->GetActorRuntimeData().currentProcess;
+			aggressorProcess && aggressorProcess->high && aggressorProcess->high->currentShout)
 		{
-			//RE::Actor* actorTarget = CALL_MEMBER_FN(this, onProjectileHit)(target, position, direction, materialID, flags);
-			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
-			RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
-			HitEvent e;
-			e.eventType = HitEvent::EventType::Projectile;
-			e.aggressor = skyrim_cast<RE::Actor*>(this->GetProjectileRuntimeData().shooter.get().get());
-			if (!e.aggressor)
-				return actorTarget;
-			e.target = target;
-			e.hitPosition = position;
-			e.hitDirection = direction;
-			e.materialID = RE::MATERIAL_ID(materialID);
-
-			RevertFunction(e);
-			if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
-				return actorTarget;
-
-			e.projectile = this;
-			if (auto aggressorProcess = e.aggressor->GetActorRuntimeData().currentProcess;
-				aggressorProcess && aggressorProcess->high && aggressorProcess->high->currentShout)
+			e.shout = aggressorProcess->high->currentShout;
+			e.shoutNum = aggressorProcess->high->currentShoutVariation;
+			e.attackType = HitEvent::AttackType::Shout;
+		}
+		else if (projectile->GetProjectileRuntimeData().spell)
+		{
+			e.spell = skyrim_cast<RE::SpellItem*>(projectile->GetProjectileRuntimeData().spell);
+			RE::TESObjectWEAP* weapon = nullptr;
+			if (e.spell && e.spell->equipSlot && e.spell->equipSlot->formID == EquipType_BothHands)
 			{
-				e.shout = aggressorProcess->high->currentShout;
-				e.shoutNum = aggressorProcess->high->currentShoutVariation;
-				e.attackType = HitEvent::AttackType::Shout;
+				e.attackHand = HitEvent::AttackHand::Both;
 			}
-			else if (this->GetProjectileRuntimeData().spell)
+			else if (projectile->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kLeftHand)
 			{
-				e.spell = skyrim_cast<RE::SpellItem*>(this->GetProjectileRuntimeData().spell);
-				RE::TESObjectWEAP* weapon = nullptr;
-				if (e.spell && e.spell->equipSlot && e.spell->equipSlot->formID == EquipType_BothHands)
-				{
-					e.attackHand = HitEvent::AttackHand::Both;
-				}
-				else if (this->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kLeftHand)
-				{
-					e.attackHand = HitEvent::AttackHand::Left;
-					weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(true));
-				}
-				else if (this->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kRightHand)
-				{
-					e.attackHand = HitEvent::AttackHand::Right;
-					weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(false));
-				}
-			
-				if (weapon) //staff
-				{
-					e.weapon = weapon;
-					e.weaponType = weapon->GetWeaponType();
-					e.attackType = HitEvent::AttackType::Weapon;
-				}
-				else
-					e.attackType = HitEvent::AttackType::Spell;
+				e.attackHand = HitEvent::AttackHand::Left;
+				weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(true));
 			}
-			else if (this->GetProjectileRuntimeData().weaponSource)
+			else if (projectile->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kRightHand)
 			{
-				if (actorTarget)
-				{
-					return actorTarget; //use TESHitEvent instead of this
+				e.attackHand = HitEvent::AttackHand::Right;
+				weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(false));
+			}
 
-					if (auto targetProcess = actorTarget->GetActorRuntimeData().currentProcess;
-						targetProcess && targetProcess->middleHigh && targetProcess->middleHigh->lastHitData)
-					{
-						e.damage = targetProcess->middleHigh->lastHitData->totalDamage;
-						e.flags = targetProcess->middleHigh->lastHitData->flags;
-					}
-				}
-				e.weapon = this->GetProjectileRuntimeData().weaponSource;
-				e.weaponType = e.weapon->GetWeaponType();
-				if (e.weapon->equipSlot && e.weapon->equipSlot->formID == EquipType_BothHands)
-					e.attackHand = HitEvent::AttackHand::Both; //Is it only bow and crossbow that passes through this?
-				else
-					e.attackHand = HitEvent::AttackHand::Right; //maybe nothing will get this
+			if (weapon) //staff
+			{
+				e.weapon = weapon;
+				e.weaponType = weapon->GetWeaponType();
 				e.attackType = HitEvent::AttackType::Weapon;
-
-				g_HitEventDispatcher.dispatch(e);
-				return actorTarget; //target is not actor, so skip the damage calculate
 			}
-
-			//damage calculate
-			if (actorTarget)//no inanimated object
-			{
-				if (auto magicEffect = this->GetProjectileRuntimeData().spell; magicEffect)
-				{
-					auto targetActorValues = actorTarget->AsActorValueOwner();
-					e.damage += GetMagicEffectInfo(magicEffect, targetActorValues, e);
-				}
-			}
-			g_HitEventDispatcher.dispatch(e);
-			return actorTarget;
+			else
+				e.attackType = HitEvent::AttackType::Spell;
 		}
-
-	private:
-		void RevertFunction(const HitEvent& e)
+		else if (projectile->GetProjectileRuntimeData().weaponSource)
 		{
-			if (auto weapon = this->GetProjectileRuntimeData().weaponSource; weapon && weapon->impactDataSet)
+			if (actorTarget)
 			{
-				ImpactManager::GetSingleton().Register(weapon->impactDataSet);
-			}
-			if (auto magicEffect = this->GetProjectileRuntimeData().spell; magicEffect)
-			{
-				for (const auto& effect : magicEffect->effects)
+				return ref; //use TESHitEvent instead of this
+
+				if (auto targetProcess = actorTarget->GetActorRuntimeData().currentProcess;
+					targetProcess && targetProcess->middleHigh && targetProcess->middleHigh->lastHitData)
 				{
-					if (!effect || !effect->baseEffect)
-						continue;
-					if (effect->baseEffect->data.effectShader)
-						ImpactManager::GetSingleton().Register(effect->baseEffect->data.effectShader);
-					if (effect->baseEffect->data.hitEffectArt)
-						ImpactManager::GetSingleton().Register(effect->baseEffect->data.hitEffectArt);
-					if (effect->baseEffect->data.impactDataSet)
-						ImpactManager::GetSingleton().Register(effect->baseEffect->data.impactDataSet);
+					e.damage = targetProcess->middleHigh->lastHitData->totalDamage;
+					e.flags = targetProcess->middleHigh->lastHitData->flags;
 				}
 			}
-			ImpactManager::GetSingleton().LoadImpactEffects(e);
+			e.weapon = projectile->GetProjectileRuntimeData().weaponSource;
+			e.weaponType = e.weapon->GetWeaponType();
+			if (e.weapon->equipSlot && e.weapon->equipSlot->formID == EquipType_BothHands)
+				e.attackHand = HitEvent::AttackHand::Both; //Is it only bow and crossbow that passes through this?
+			else
+				e.attackHand = HitEvent::AttackHand::Right; //maybe nothing will get this
+			e.attackType = HitEvent::AttackType::Weapon;
+
+			g_HitEventDispatcher.dispatch(e);
+			return ref; //target is not actor, so skip the damage calculate
 		}
-	};
+
+		//damage calculate
+		if (actorTarget)//no inanimated object
+		{
+			if (auto magicEffect = projectile->GetProjectileRuntimeData().spell; magicEffect)
+			{
+				auto targetActorValues = actorTarget->AsActorValueOwner();
+				e.damage += GetMagicEffectInfo(magicEffect, targetActorValues, e);
+			}
+		}
+		if (e.damage > 0.00f) //only damage projectile
+			g_HitEventDispatcher.dispatch(e);
+		return ref;
+	}
 
 	struct TESHitEvent : public RE::BSTEventSink<RE::TESHitEvent>
 	{
@@ -280,8 +250,7 @@ namespace Mus {
 		logger::info("Skyrim Hooking...");
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
-		if (Config::GetSingleton().GetProxyProjectileEnable())
-			DetourAttach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
+		DetourAttach((void**)&onProjectileHit_, (void*)&onProjectileHit);
 		DetourTransactionCommit();
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
@@ -293,8 +262,7 @@ namespace Mus {
 	{
 		DetourRestoreAfterWith();
 		DetourTransactionBegin();
-		if (Config::GetSingleton().GetProxyProjectileEnable())
-			DetourDetach((void**)ProjectileHit::_onProjectileHit_GetPtrAddr(), (void*)GetFnAddr(&ProjectileHit::onProjectileHit));
+		DetourDetach((void**)&onProjectileHit_, (void*)&onProjectileHit);
 		DetourTransactionCommit();
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {

@@ -22,19 +22,6 @@ namespace Mus {
 #define DEFINE_MEMBER_FN_HOOK(functionName, retnType, address, ...)	\
 	DEFINE_MEMBER_FN_LONG_HOOK(_MEMBER_FN_BASE_TYPE, functionName, retnType, address, __VA_ARGS__)
 
-    template <typename T>
-    uintptr_t GetFnAddr(T src) {
-        union {
-            uintptr_t u;
-            T t;
-        } data;
-
-        data.t = src;
-
-        return data.u;
-    }
-
-
 	struct HitEvent
 	{
 		//enums

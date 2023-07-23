@@ -329,6 +329,22 @@ namespace Mus {
                                     isAggressor = false;
                                     isTarget = true;
                                 }
+                                else if (variableName == "Option")
+                                {
+                                    auto options = split(variableValue, ",");
+                                    for (auto& option : options)
+                                    {
+                                        auto option_arg = split(option, ":");
+                                        if (option_arg.size() <= 1)
+                                            continue;
+                                        if (IsSameString(option_arg.at(0), "scale") || option_arg.at(0) == "S")
+                                            condition.options.Scale = std::stof(option_arg.at(1));
+                                        else if (IsSameString(option_arg.at(0), "duration") || option_arg.at(0) == "D")
+                                            condition.options.Duration = std::stof(option_arg.at(1));
+                                        else if (IsSameString(option_arg.at(0), "randomhitdirection") || option_arg.at(0) == "RD")
+                                            condition.options.RandomHitDirection = std::stoi(option_arg.at(1)) == 1 ? true : false;
+                                    }
+                                } 
                                 else
                                 {
                                     if (isAggressor)

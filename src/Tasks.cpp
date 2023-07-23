@@ -251,6 +251,8 @@ namespace Mus {
 		if (!mTarget || !mArtObject)
 			return;
 		auto artObject = mTarget->InstantiateHitArt(mArtObject, 0.0f, nullptr, false, false);
+		if (!artObject)
+			return;
 		logger::debug("{}create EffectShader for {:x} {}", artObject ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
 		return;
 	}

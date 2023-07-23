@@ -3,20 +3,24 @@
 namespace Mus {
 	void ImpactManager_impl::Register(RE::BGSImpactDataSet* dataSet)
 	{
-		ImpactDataSet[dataSet->formID] = dataSet;
+		if (dataSet)
+			ImpactDataSet[dataSet->formID] = dataSet;
 	}
 	void ImpactManager_impl::UnRegister(RE::BGSImpactDataSet* dataSet)
 	{
-		ImpactDataSet.erase(dataSet->formID);
+		if (dataSet)
+			ImpactDataSet.erase(dataSet->formID);
 	}
 
 	void ImpactManager_impl::Register(RE::SpellItem* spell)
 	{
-		Spell[spell->formID] = spell;
+		if (spell)
+			Spell[spell->formID] = spell;
 	}
 	void ImpactManager_impl::UnRegister(RE::SpellItem* spell)
 	{
-		Spell.erase(spell->formID);
+		if (spell)
+			Spell.erase(spell->formID);
 	}
 
 	void ImpactManager_impl::Register(std::string VFXPath, std::uint8_t VFXType)
@@ -44,20 +48,24 @@ namespace Mus {
 
 	void ImpactManager_impl::Register(RE::TESEffectShader* effectShader)
 	{
-		EffectShader[effectShader->formID] = effectShader;
+		if (effectShader)
+			EffectShader[effectShader->formID] = effectShader;
 	}
 	void ImpactManager_impl::UnRegister(RE::TESEffectShader* effectShader)
 	{
-		EffectShader.erase(effectShader->formID);
+		if (effectShader)
+			EffectShader.erase(effectShader->formID);
 	}
 
 	void ImpactManager_impl::Register(RE::BGSArtObject* artObject)
 	{
-		ArtObject[artObject->formID] = artObject;
+		if (artObject)
+			ArtObject[artObject->formID] = artObject;
 	}
 	void ImpactManager_impl::UnRegister(RE::BGSArtObject* artObject)
 	{
-		ArtObject.erase(artObject->formID);
+		if (artObject)
+			ArtObject.erase(artObject->formID);
 	}
 
 	void ImpactManager_impl::UnRegister(RegisterType type)
@@ -96,12 +104,12 @@ namespace Mus {
 		UnRegister(RegisterType::kAll);
 	}
 
-	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj, bool instance)
+	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
 		for (const auto& impactData : ImpactDataSet)
 		{
-			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPoint, hitDirection, materialID, targetObj);
+			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPosition, hitDirection, materialID, targetObj);
 			if (!g_task || instance)
 			{
 				newTask->Run();
