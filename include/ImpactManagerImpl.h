@@ -71,7 +71,7 @@ namespace Mus {
 		std::unordered_map<RE::FormID, RE::TESEffectShader*> EffectShader;
 		std::unordered_map<RE::FormID, RE::BGSArtObject*> ArtObject;
 
-		void LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
 		void LoadSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
 		void LoadVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
 		void LoadSound(RE::NiPoint3 hitPoint, bool instance = Config::GetSingleton().GetInstanceMode());

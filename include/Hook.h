@@ -67,7 +67,7 @@ namespace Mus {
 		RE::TESObjectREFR* target = nullptr;
 		RE::NiPoint3 hitPosition;
 		RE::NiPoint3 hitDirection;
-		RE::MATERIAL_ID materialID = RE::MATERIAL_ID::kNone;
+		RE::BGSMaterialType* material = nullptr;
 
 		//non weapon attack
 		RE::Projectile* projectile = nullptr;

@@ -90,7 +90,7 @@ namespace Mus {
 	void ImpactManager_impl::LoadImpactEffects(const HitEvent& e)
 	{
 		if (ImpactDataSet.size() > 0)
-			LoadImpactData(e.aggressor, e.target, e.hitPosition, e.hitDirection, e.materialID);
+			LoadImpactData(e.aggressor, e.target, e.hitPosition, e.hitDirection, e.material);
 		if (Spell.size() > 0)
 			LoadSpell(e.aggressor, e.target);
 		if (VFX.size() > 0)
@@ -104,12 +104,12 @@ namespace Mus {
 		UnRegister(RegisterType::kAll);
 	}
 
-	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::MATERIAL_ID materialID, RE::NiAVObject* targetObj, bool instance)
+	void ImpactManager_impl::LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj, bool instance)
 	{
 		const SKSE::detail::SKSETaskInterface* g_task = reinterpret_cast<const SKSE::detail::SKSETaskInterface*>(SKSE::GetTaskInterface());
 		for (const auto& impactData : ImpactDataSet)
 		{
-			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPosition, hitDirection, materialID, targetObj);
+			TaskImpactVFX* newTask = new TaskImpactVFX(impactData.second, aggressor, target, hitPosition, hitDirection, material, targetObj);
 			if (!g_task || instance)
 			{
 				newTask->Run();

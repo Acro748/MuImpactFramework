@@ -6,56 +6,20 @@ namespace Mus {
 		if (!mImpactData || !mAggressor)
 			return;
 
-		RE::BGSMaterialType* material = nullptr;
-		if (auto target = skyrim_cast<RE::Actor*>(mTarget); target) //only actor
+		if (!mMaterial)
 		{
-			if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
-				material = race->bloodImpactMaterial;
-			else
-				material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
-		}
-		else //non actor
-		{
-			RE::MATERIAL_ID materialID = mMaterialID; 
-			if (materialID == RE::MATERIAL_ID::kNone)
+			if (RE::Actor* target = skyrim_cast<RE::Actor*>(mTarget))
 			{
-				if (mTarget && mTarget->loadedData && mTarget->loadedData->data3D)
-				{
-					materialID = RE::TES::GetSingleton()->GetLandMaterialType(emptyPoint);
-					if (materialID == RE::MATERIAL_ID::kNone)
-					{
-						auto root = mTarget->loadedData->data3D.get();
-						RE::BSVisit::TraverseScenegraphCollision(root, [&](RE::bhkNiCollisionObject* colObj) {
-							const auto rigidBody = colObj->body ? colObj->body->AsBhkRigidBody() : nullptr;
-							if (!rigidBody || !rigidBody->referencedObject)
-								return RE::BSVisit::BSVisitControl::kContinue;
-
-							const auto havokRigidBody = static_cast<RE::hkpRigidBody*>(rigidBody->referencedObject.get());
-							if (!havokRigidBody)
-								return RE::BSVisit::BSVisitControl::kContinue;
-
-							const auto collidable = havokRigidBody->GetCollidable();
-							if (!collidable)
-								return RE::BSVisit::BSVisitControl::kContinue;
-
-							const auto colLayer = static_cast<RE::COL_LAYER>(collidable->broadPhaseHandle.collisionFilterInfo & 0x7F);
-							materialID = GetMaterialID(colLayer);
-							if (materialID != RE::MATERIAL_ID::kNone)
-								return RE::BSVisit::BSVisitControl::kStop;
-
-							return RE::BSVisit::BSVisitControl::kContinue;
-							});
-					}
-					if (materialID == RE::MATERIAL_ID::kNone)
-						materialID = RE::MATERIAL_ID::kDirt;
-				}
+				if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
+					mMaterial = race->bloodImpactMaterial;
 				else
-					materialID = RE::MATERIAL_ID::kGrass;
+					mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
 			}
-			material = RE::BGSMaterialType::GetMaterialType(materialID);
+			else
+				mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kStone);
 		}
-
-		auto found = material ? mImpactData->impactMap.find(material) : mImpactData->impactMap.end();
+		
+		auto found = mMaterial ? mImpactData->impactMap.find(mMaterial) : mImpactData->impactMap.end();
 		if (found == mImpactData->impactMap.end())
 			return;
 		
@@ -75,7 +39,7 @@ namespace Mus {
 			return;
 		}
 
-		if (!mTarget)
+		if (!mTarget) //if target is invalid then skip sound
 			return;
 
 		RE::BSSoundHandle handle1, handle2;

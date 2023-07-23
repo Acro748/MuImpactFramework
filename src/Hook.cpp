@@ -79,25 +79,27 @@ namespace Mus {
 		return damage;
 	}
 
-	typedef RE::Actor* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, std::uint32_t materialID, std::uint8_t flags);
+	typedef RE::TESObjectREFR* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
 	REL::Relocation<_onProjectileHit> onProjectileHit_(ProjectileHitFunction);
-	RE::Actor* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, std::uint32_t materialID, std::uint8_t flags)
+	RE::TESObjectREFR* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
-		RE::Actor* ref = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+		RE::TESObjectREFR* result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
 		TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 		RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
+		if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
+			return result;
 		HitEvent e;
 		e.eventType = HitEvent::EventType::Projectile;
 		e.aggressor = skyrim_cast<RE::Actor*>(projectile->GetProjectileRuntimeData().shooter.get().get());
 		if (!e.aggressor)
-			return ref;
+			return result;
 		e.target = target;
 		e.hitPosition = position;
 		e.hitDirection = direction;
-		e.materialID = RE::MATERIAL_ID(materialID);
-
-		if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
-			return ref;
+		if (auto race = actorTarget ? actorTarget->GetRace() : nullptr; race && race->bloodImpactMaterial)
+			e.material = race->bloodImpactMaterial;
+		else
+			e.material = RE::BGSMaterialType::GetMaterialType(materialID);
 
 		e.projectile = projectile;
 		if (auto aggressorProcess = e.aggressor->GetActorRuntimeData().currentProcess;
@@ -139,7 +141,7 @@ namespace Mus {
 		{
 			if (actorTarget)
 			{
-				return ref; //use TESHitEvent instead of this
+				return result; //use TESHitEvent instead of this
 
 				if (auto targetProcess = actorTarget->GetActorRuntimeData().currentProcess;
 					targetProcess && targetProcess->middleHigh && targetProcess->middleHigh->lastHitData)
@@ -157,7 +159,7 @@ namespace Mus {
 			e.attackType = HitEvent::AttackType::Weapon;
 
 			g_HitEventDispatcher.dispatch(e);
-			return ref; //target is not actor, so skip the damage calculate
+			return result; //target is not actor, so skip the damage calculate
 		}
 
 		//damage calculate
@@ -171,7 +173,7 @@ namespace Mus {
 		}
 		if (e.damage > 0.00f) //only damage projectile
 			g_HitEventDispatcher.dispatch(e);
-		return ref;
+		return result;
 	}
 
 	struct TESHitEvent : public RE::BSTEventSink<RE::TESHitEvent>
@@ -181,7 +183,6 @@ namespace Mus {
 		EventResult ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>*) override {
 			if (!evn || !evn->cause || !evn->target)
 				return EventResult::kContinue;
-
 			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 
 			RE::Actor* aggressor = skyrim_cast<RE::Actor*>(evn->cause.get());
@@ -202,6 +203,8 @@ namespace Mus {
 			e.target = target;
 			e.hitPosition = hitData->hitPosition;
 			e.hitDirection = hitData->hitDirection;
+			if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
+				e.material = race->bloodImpactMaterial;
 
 			e.weapon = hitData->weapon;
 			e.flags = hitData->flags;
