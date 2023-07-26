@@ -335,14 +335,18 @@ namespace Mus {
                                     for (auto& option : options)
                                     {
                                         auto option_arg = split(option, ":");
-                                        if (option_arg.size() <= 1)
-                                            continue;
-                                        if (IsSameString(option_arg.at(0), "scale") || option_arg.at(0) == "S")
-                                            condition.options.Scale = std::stof(option_arg.at(1));
-                                        else if (IsSameString(option_arg.at(0), "duration") || option_arg.at(0) == "D")
-                                            condition.options.Duration = std::stof(option_arg.at(1));
-                                        else if (IsSameString(option_arg.at(0), "randomhitdirection") || option_arg.at(0) == "RD")
-                                            condition.options.RandomHitDirection = std::stoi(option_arg.at(1)) == 1 ? true : false;
+                                        if (option_arg.size() == 1)
+                                        {
+                                            if (IsSameString(option_arg.at(0), "randomdirection") || option_arg.at(0) == "RD")
+                                                condition.option.RandomDirection = true;
+                                        }
+                                        else if (option_arg.size() == 2)
+                                        {
+                                            if (IsSameString(option_arg.at(0), "scale") || option_arg.at(0) == "S")
+                                                condition.option.Scale = std::stof(option_arg.at(1));
+                                            else if (IsSameString(option_arg.at(0), "duration") || option_arg.at(0) == "D")
+                                                condition.option.Duration = std::stof(option_arg.at(1));
+                                        }
                                     }
                                 } 
                                 else

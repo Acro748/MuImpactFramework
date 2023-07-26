@@ -398,15 +398,15 @@ namespace Mus {
 	}
 	std::uint8_t ConditionManager::GetVFXType(std::string vfxPath)
 	{
-		std::uint8_t vfxType = TaskVFX::VFXType::Impact;
+		std::uint8_t vfxType = VFXTask::VFXType::Impact;
 		if (vfxPath.empty())
-			return TaskVFX::VFXType::None;
+			return VFXTask::VFXType::None;
 
 		std::string newPath = "Meshes\\" + vfxPath;
 		RE::BSResourceNiBinaryStream binaryStream(newPath.c_str());
 		if (!binaryStream.good()) {
 			logger::error("Failed load to nif file - {}", newPath.c_str());
-			return TaskVFX::VFXType::None;
+			return VFXTask::VFXType::None;
 		}
 
 		std::uint8_t niStreamMemory[sizeof(RE::NiStream)];
@@ -426,7 +426,7 @@ namespace Mus {
 				auto manager = controller->AsNiControllerManager();
 				if (manager)
 				{
-					vfxType = TaskVFX::VFXType::HitEffect;
+					vfxType = VFXTask::VFXType::HitEffect;
 					break;
 				}
 			}
@@ -434,7 +434,7 @@ namespace Mus {
 
 		NiStream_dtor(niStream);
 
-		logger::info("{} => {}", vfxPath, magic_enum::enum_name(TaskVFX::VFXType(vfxType)).data());
+		logger::info("{} => {}", vfxPath, magic_enum::enum_name(VFXTask::VFXType(vfxType)).data());
 		return vfxType;
 	}
 

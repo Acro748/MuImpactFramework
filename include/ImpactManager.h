@@ -2,7 +2,7 @@
 
 namespace Mus {
 	class ImpactManager : 
-		public ImpactManager_impl,
+		public ImpactManagerImpl,
 		public IEventListener<HitEvent>
 	{
 	public:

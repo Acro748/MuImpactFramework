@@ -24,19 +24,19 @@ namespace Mus {
 			{
 				if (item)
 				{
-					Register(item);
+					Register(item, condition.option);
 				}
 			}
 			for (const auto& item : condition.SpellItems)
 			{
 				if (item)
 				{
-					Register(item);
+					Register(item, condition.option);
 				}
 			}
 			for (const auto& item : condition.VFXItems)
 			{
-				Register(item.vfxPath, item.vfxType);
+				Register(item.vfxPath, item.vfxType, condition.option);
 			}
 			for (const auto& item : condition.SoundDescriptor1Items)
 			{
@@ -56,13 +56,18 @@ namespace Mus {
 			{
 				if (item)
 				{
-					Register(item);
+					Register(item, condition.option);
+				}
+			}
+			for (const auto& item : condition.ArtObjectItems)
+			{
+				if (item)
+				{
+					Register(item, condition.option);
 				}
 			}
 		}
-
 		LoadImpactEffects(e);
-
 		TimeLogger(true, Config::GetSingleton().GetEnableTimeCounter());
 	}
 }

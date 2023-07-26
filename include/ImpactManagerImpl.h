@@ -1,28 +1,28 @@
 #pragma once
 
 namespace Mus {
-	class ImpactManager_impl
+	class ImpactManagerImpl
 	{
 	public:
-		ImpactManager_impl() {};
-		~ImpactManager_impl() {};
+		ImpactManagerImpl() {};
+		~ImpactManagerImpl() {};
 
-		void Register(RE::BGSImpactDataSet* dataSet);
+		void Register(RE::BGSImpactDataSet* dataSet, Option option);
 		void UnRegister(RE::BGSImpactDataSet* dataSet);
 
-		void Register(RE::SpellItem* spell);
+		void Register(RE::SpellItem* spell, Option option);
 		void UnRegister(RE::SpellItem* spell);
 
-		void Register(std::string VFXPath, std::uint8_t VFXType);
+		void Register(std::string VFXPath, std::uint8_t VFXType, Option option);
 		void UnRegister(std::string VFXPath);
 
 		void Register(RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
 		void UnRegister(RE::BGSSoundDescriptorForm* sound, bool SecondSound = false);
 
-		void Register(RE::TESEffectShader* effectShader);
+		void Register(RE::TESEffectShader* effectShader, Option option);
 		void UnRegister(RE::TESEffectShader* effectShader);
 
-		void Register(RE::BGSArtObject* artObject);
+		void Register(RE::BGSArtObject* artObject, Option option);
 		void UnRegister(RE::BGSArtObject* artObject);
 
 		enum RegisterType : std::uint32_t {
@@ -39,22 +39,44 @@ namespace Mus {
 
 		void UnRegister(RegisterType type = RegisterType::kAll);
 
-		const std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> GetImpactDataSet() const {
+		struct ImpactDataSet_ {
+			RE::BGSImpactDataSet* item;
+			Option option;
+		};
+		struct SpellItem_ {
+			RE::SpellItem* item;
+			Option option;
+		};
+		struct VFX_ {
+			std::string vfxPath;
+			std::uint8_t vfxType;
+			Option option;
+		};
+		struct TESEffectShader_ {
+			RE::TESEffectShader* item;
+			Option option;
+		};
+		struct BGSArtObject_ {
+			RE::BGSArtObject* item;
+			Option option;
+		};
+
+		const std::unordered_map<RE::FormID, ImpactDataSet_> GetImpactDataSet() const {
 			return ImpactDataSet;
 		};
-		const std::unordered_map<RE::FormID, RE::SpellItem*> GetSpell() const {
+		const std::unordered_map<RE::FormID, SpellItem_> GetSpell() const {
 			return Spell;
 		};
-		const std::unordered_map<std::string, std::uint8_t> GetVFX() const {
+		const std::unordered_map<std::string, VFX_> GetVFX() const {
 			return VFX;
 		};
 		const std::vector<RE::BGSSoundDescriptorForm*> GetSound(bool SecondSound = false) const {
 			return Sound[SecondSound];
 		};
-		const std::unordered_map<RE::FormID, RE::TESEffectShader*> GetEffectShader() const {
+		const std::unordered_map<RE::FormID, TESEffectShader_> GetEffectShader() const {
 			return EffectShader;
 		};
-		const std::unordered_map<RE::FormID, RE::BGSArtObject*> GetArtObject() const {
+		const std::unordered_map<RE::FormID, BGSArtObject_> GetArtObject() const {
 			return ArtObject;
 		};
 
@@ -64,18 +86,18 @@ namespace Mus {
 
 		void LoadImpactEffects(const HitEvent& e);
 	private:
-		std::unordered_map<RE::FormID, RE::BGSImpactDataSet*> ImpactDataSet;
-		std::unordered_map<RE::FormID, RE::SpellItem*> Spell;
-		std::unordered_map<std::string, std::uint8_t> VFX;
+		std::unordered_map<RE::FormID, ImpactDataSet_> ImpactDataSet;
+		std::unordered_map<RE::FormID, SpellItem_> Spell;
+		std::unordered_map<std::string, VFX_> VFX;
 		std::vector<RE::BGSSoundDescriptorForm*> Sound[2];
-		std::unordered_map<RE::FormID, RE::TESEffectShader*> EffectShader;
-		std::unordered_map<RE::FormID, RE::BGSArtObject*> ArtObject;
+		std::unordered_map<RE::FormID, TESEffectShader_> EffectShader;
+		std::unordered_map<RE::FormID, BGSArtObject_> ArtObject;
 
-		void LoadImpactData(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadSpell(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadVFX(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadSound(RE::NiPoint3 hitPoint, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadEffectShader(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadArtObject(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadImpactData(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadSpell(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadVFX(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadSound(RE::NiPoint3 hitPosition, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadEffectShader(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadArtObject(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
 	};
 }

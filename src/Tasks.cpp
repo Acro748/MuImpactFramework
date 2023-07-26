@@ -1,95 +1,6 @@
 #include "Tasks.h"
 
 namespace Mus {
-	void TaskImpactVFX::Run()
-	{
-		if (!mImpactData || !mAggressor)
-			return;
-
-		if (!mMaterial)
-		{
-			if (RE::Actor* target = skyrim_cast<RE::Actor*>(mTarget))
-			{
-				if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
-					mMaterial = race->bloodImpactMaterial;
-				else
-					mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
-			}
-			else
-				mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kStone);
-		}
-		
-		auto found = mMaterial ? mImpactData->impactMap.find(mMaterial) : mImpactData->impactMap.end();
-		if (found == mImpactData->impactMap.end())
-			return;
-		
-		logger::debug("material type {} for {:x} {}", static_cast<std::uint32_t>(found->first->materialID), mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
-		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, found->second->GetModel(), mHitDirection, mHitPoint, 1.0f, 7, mTargetObj);
-		if (particle)
-		{
-			auto processLists = RE::ProcessLists::GetSingleton();
-			processLists->globalEffectsLock.Lock();
-			processLists->globalTempEffects.emplace_back(particle);
-			processLists->globalEffectsLock.Unlock();
-			logger::trace("create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
-		}
-		else
-		{
-			logger::error("couldn't create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
-			return;
-		}
-
-		if (!mTarget) //if target is invalid then skip sound
-			return;
-
-		RE::BSSoundHandle handle1, handle2;
-		if (found->second->sound1)
-			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle1, found->second->sound1);
-		if (found->second->sound2)
-			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, found->second->sound2);
-		RE::BGSImpactManager::ImpactSoundData sound{
-			found->second,
-			&mHitPoint,
-			nullptr,
-			found->second->sound1 ? &handle1 : nullptr,
-			found->second->sound2 ? &handle2 : nullptr,
-			found->second->sound1 ? true : false,
-			found->second->sound2 ? true : false
-		};
-		RE::BGSImpactManager::GetSingleton()->PlayImpactDataSounds(sound);
-	}
-	void TaskImpactVFX::Dispose()
-	{
-		delete this;
-	}
-	RE::MATERIAL_ID TaskImpactVFX::GetMaterialID(const RE::COL_LAYER& layer)
-	{
-		RE::MATERIAL_ID result = RE::MATERIAL_ID::kNone;
-		switch (layer) {
-		case RE::COL_LAYER::kTrees:
-			result = RE::MATERIAL_ID::kWood;
-			break;
-		case RE::COL_LAYER::kWater:
-			result = RE::MATERIAL_ID::kWater;
-			break;
-		case RE::COL_LAYER::kTerrain:
-			result = RE::MATERIAL_ID::kStone;
-			break;
-		case RE::COL_LAYER::kGround:
-			result = RE::MATERIAL_ID::kGrass;
-			break;
-		default:
-			result = RE::MATERIAL_ID::kDirt;
-		}
-		return result;
-	}
-	RE::MATERIAL_ID TaskImpactVFX::GetMaterialID(RE::TES* tes, float* a_position)
-	{
-		using func_t = RE::MATERIAL_ID(*)(RE::TES*, float*);
-		REL::Relocation<func_t> func{ RELOCATION_ID(13203, 13349) };
-		return func(tes, a_position);
-	}
-
 	RE::BGSImpactData* TaskTempFormManager::GetImpactDataTempForm()
 	{
 		static std::mutex m_lock;
@@ -148,7 +59,94 @@ namespace Mus {
 		return newForm;
 	}
 
-	void TaskVFX::Run()
+	RE::NiPoint3 TaskOptionManager::GetRandomDirection() {
+		std::mt19937 generator(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+		std::uniform_real_distribution<float> distribution(-MATH_PI, MATH_PI);
+		return RE::NiPoint3(distribution(generator), distribution(generator), distribution(generator));
+	}
+
+	void VFXTaskImpactDataSet::Run()
+	{
+		if (!mImpactData || !mAggressor)
+			return;
+
+		if (!mMaterial)
+		{
+			if (RE::Actor* target = skyrim_cast<RE::Actor*>(mTarget))
+			{
+				if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
+					mMaterial = race->bloodImpactMaterial;
+				else
+					mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
+			}
+			else
+				mMaterial = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kStone);
+		}
+		
+		auto found = mMaterial ? mImpactData->impactMap.find(mMaterial) : mImpactData->impactMap.end();
+		if (found == mImpactData->impactMap.end() || !found->second)
+			return;
+
+		logger::debug("material type {} for {:x} {}", static_cast<std::uint32_t>(found->first->materialID), mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
+		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, mOption.Duration, found->second->GetModel(), mOption.RandomDirection ? TaskOptionManager::GetSingleton().GetRandomDirection() : mHitDirection, mhitPosition, mOption.Scale, 7, nullptr);
+		if (particle)
+		{
+			auto processLists = RE::ProcessLists::GetSingleton();
+			processLists->globalEffectsLock.Lock();
+			processLists->globalTempEffects.emplace_back(particle);
+			processLists->globalEffectsLock.Unlock();
+			logger::trace("create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
+		}
+		else
+		{
+			logger::error("couldn't create ImpactVFX {:x} for {:x} {}", mImpactData->formID, mTarget ? mTarget->formID : 0, mTarget ? mTarget->GetName() : "Inanimate Object");
+			return;
+		}
+
+		if (!mTarget) //if target is invalid then skip sound
+			return;
+
+		RE::BSSoundHandle handle1, handle2;
+		if (found->second->sound1)
+			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle1, found->second->sound1);
+		if (found->second->sound2)
+			RE::BSAudioManager::GetSingleton()->BuildSoundDataFromDescriptor(handle2, found->second->sound2);
+		RE::BGSImpactManager::ImpactSoundData sound{
+			found->second,
+			&mhitPosition,
+			nullptr,
+			found->second->sound1 ? &handle1 : nullptr,
+			found->second->sound2 ? &handle2 : nullptr,
+			found->second->sound1 ? true : false,
+			found->second->sound2 ? true : false
+		};
+		RE::BGSImpactManager::GetSingleton()->PlayImpactDataSounds(sound);
+	}
+	void VFXTaskImpactDataSet::Dispose()
+	{
+		delete this;
+	}
+
+	void VFXTaskSpell::Run()
+	{
+		if (!mSpell || !mAggressor || !mTarget)
+			return;
+
+		Cast(nullptr, 0, mSpell, mAggressor, mTarget);
+	}
+	void VFXTaskSpell::Dispose()
+	{
+		delete this;
+	}
+	void VFXTaskSpell::Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target)
+	{
+		using func_t = decltype(&VFXTaskSpell::Cast);
+		REL::VariantID offset(55149, 55747, 0x930EC0);
+		REL::Relocation<func_t> func{ offset };
+		return func(VMinternal, stackId, spell, aggressor, target);
+	}
+
+	void VFXTask::Run()
 	{
 		if (mVFXPath.empty())
 			return;
@@ -163,17 +161,17 @@ namespace Mus {
 			break;
 		}
 
-		logger::debug("{}create VFX({}) {} on ({}, {}, {}) for {:x} {}", isCreated ? "couldn't " : "", magic_enum::enum_name(mVFXType).data(), mVFXPath, mHitPoint.x, mHitPoint.y, mHitPoint.z, mTarget->formID, mTarget->GetName());
+		logger::debug("{}create VFX({}) {} on ({}, {}, {}) for {:x} {}", isCreated ? "couldn't " : "", magic_enum::enum_name(mVFXType).data(), mVFXPath, mhitPosition.x, mhitPosition.y, mhitPosition.z, mTarget->formID, mTarget->GetName());
 	}
-	void TaskVFX::Dispose()
+	void VFXTask::Dispose()
 	{
 		delete this;
 	}
-	bool TaskVFX::CreateImpactVFX()
+	bool VFXTask::CreateImpactVFX()
 	{
 		if (!mAggressor)
 			return false;
-		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, 0.0f, mVFXPath.c_str(), mHitDirection, mHitPoint, 1.0f, 7, mTargetObj);
+		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, mOption.Duration, mVFXPath.c_str(), mOption.RandomDirection ? TaskOptionManager::GetSingleton().GetRandomDirection() : mHitDirection, mhitPosition, mOption.Scale, 7, mTargetObj);
 		if (!particle)
 			return false;
 		auto processLists = RE::ProcessLists::GetSingleton();
@@ -183,7 +181,7 @@ namespace Mus {
 		processLists->globalTempEffects.emplace_back(particle);
 		return true;
 	}
-	bool TaskVFX::CreateArtVFX()
+	bool VFXTask::CreateArtVFX()
 	{
 		if (!mTarget)
 			return false;
@@ -191,41 +189,13 @@ namespace Mus {
 		if (!art)
 			return false;
 		art->SetModel(mVFXPath.c_str());
-		auto hitEffect = mTarget->InstantiateHitArt(art, 0.0f, nullptr, false, false);
+		auto hitEffect = mTarget->InstantiateHitArt(art, mOption.Duration, nullptr, false, false);
 		if (!hitEffect)
 			return false;
 		return true;
 	}
 
-	void TaskEffectShader::Run()
-	{
-		if (!mTarget || !mEffectShader)
-			return;
-		auto hitShader = mTarget->InstantiateHitShader(mEffectShader, 0.0f, nullptr, false, false);
-		logger::debug("{}create EffectShader for {:x} {}", hitShader ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
-		return;
-	}
-	void TaskEffectShader::Dispose()
-	{
-		delete this;
-	}
-
-	void TaskArtObject::Run()
-	{
-		if (!mTarget || !mArtObject)
-			return;
-		auto artObject = mTarget->InstantiateHitArt(mArtObject, 0.0f, nullptr, false, false);
-		if (!artObject)
-			return;
-		logger::debug("{}create EffectShader for {:x} {}", artObject ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
-		return;
-	}
-	void TaskArtObject::Dispose()
-	{
-		delete this;
-	}
-
-	void TaskSound::Run()
+	void SFXTaskSound::Run()
 	{
 		RE::BSSoundHandle handle1, handle2;
 		if (mSound1)
@@ -238,7 +208,7 @@ namespace Mus {
 		impactData->sound2 = mSound2;
 		RE::BGSImpactManager::ImpactSoundData sound{
 			impactData,
-			&mHitPoint,
+			&mhitPosition,
 			nullptr,
 			mSound1 ? &handle1 : nullptr,
 			mSound2 ? &handle2 : nullptr,
@@ -247,27 +217,36 @@ namespace Mus {
 		};
 		RE::BGSImpactManager::GetSingleton()->PlayImpactDataSounds(sound);
 	}
-	void TaskSound::Dispose()
+	void SFXTaskSound::Dispose()
 	{
 		delete this;
 	}
 
-	void TaskCastVFX::Run()
+	void VFXTaskEffectShader::Run()
 	{
-		if (!mSpell || !mAggressor || !mTarget)
+		if (!mTarget || !mEffectShader)
 			return;
-
-		Cast(nullptr, 0, mSpell, mAggressor, mTarget);
+		auto hitShader = mTarget->InstantiateHitShader(mEffectShader, mOption.Duration, nullptr, false, false);
+		logger::debug("{}create EffectShader for {:x} {}", hitShader ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
+		return;
 	}
-	void TaskCastVFX::Dispose()
+	void VFXTaskEffectShader::Dispose()
 	{
 		delete this;
 	}
-	void TaskCastVFX::Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target)
+
+	void VFXTaskArtObject::Run()
 	{
-		using func_t = decltype(&TaskCastVFX::Cast);
-		REL::VariantID offset(55149, 55747, 0x930EC0);
-		REL::Relocation<func_t> func{ offset };
-		return func(VMinternal, stackId, spell, aggressor, target);
+		if (!mTarget || !mArtObject)
+			return;
+		auto artObject = mTarget->InstantiateHitArt(mArtObject, mOption.Duration, nullptr, false, false);
+		if (!artObject)
+			return;
+		logger::debug("{}create EffectShader for {:x} {}", artObject ? "" : "couldn't ", mTarget->formID, mTarget->GetName());
+		return;
+	}
+	void VFXTaskArtObject::Dispose()
+	{
+		delete this;
 	}
 }

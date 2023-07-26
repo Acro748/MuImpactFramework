@@ -84,10 +84,12 @@ namespace Mus {
 	RE::TESObjectREFR* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
 		RE::TESObjectREFR* result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
-		TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
+		if (!projectile || !projectile->GetProjectileRuntimeData().shooter)
+			return result;
 		RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
 		if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
 			return result;
+		TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 		HitEvent e;
 		e.eventType = HitEvent::EventType::Projectile;
 		e.aggressor = skyrim_cast<RE::Actor*>(projectile->GetProjectileRuntimeData().shooter.get().get());

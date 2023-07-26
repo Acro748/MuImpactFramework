@@ -1,28 +1,7 @@
 #pragma once
 
 namespace Mus {
-	class TaskImpactVFX : public SKSE::detail::TaskDelegate
-	{
-	public:
-		TaskImpactVFX(RE::BGSImpactDataSet* impactData, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr)
-			: mImpactData(impactData), mAggressor(aggressor), mTarget(target), mHitPoint(hitPoint), mHitDirection(hitDirection), mMaterial(material), mTargetObj(targetObj) {};
-
-		void Run();
-		void Dispose();
-
-	private:
-		RE::BGSImpactDataSet* mImpactData = nullptr;
-		RE::TESObjectREFR* mAggressor = nullptr;
-		RE::TESObjectREFR* mTarget = nullptr;
-		RE::NiPoint3 mHitPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
-		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
-		RE::NiAVObject* mTargetObj;
-		RE::BGSMaterialType* mMaterial;
-
-		RE::MATERIAL_ID GetMaterialID(const RE::COL_LAYER& layer);
-		static RE::MATERIAL_ID GetMaterialID(RE::TES* tes, float* a_position);
-	};
-
+	using Option = ConditionManager::Condition::Option;
 	class TaskTempFormManager
 	{
 	public:
@@ -41,11 +20,59 @@ namespace Mus {
 		T* GetNewForm();
 	};
 
-	class TaskVFX : public SKSE::detail::TaskDelegate
+	class TaskOptionManager
 	{
 	public:
-		TaskVFX(std::string VFXPath, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPoint, RE::NiPoint3 hitDirection, std::uint8_t vfxType, RE::NiAVObject* targetObj = nullptr)
-			: mVFXPath(VFXPath), mAggressor(aggressor), mTarget(target), mHitPoint(hitPoint), mHitDirection(hitDirection), mVFXType(VFXType(vfxType)), mTargetObj(targetObj) {};
+		[[nodiscard]] static TaskOptionManager& GetSingleton() {
+			static TaskOptionManager instance;
+			return instance;
+		};
+
+		RE::NiPoint3 GetRandomDirection();
+	};
+
+	class VFXTaskImpactDataSet : public SKSE::detail::TaskDelegate
+	{
+	public:
+		VFXTaskImpactDataSet(RE::BGSImpactDataSet* impactData, RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, Option option)
+			: mImpactData(impactData), mAggressor(aggressor), mTarget(target), mhitPosition(hitPosition), mHitDirection(hitDirection), mMaterial(material), mOption(option) {};
+
+		void Run();
+		void Dispose();
+
+	private:
+		RE::BGSImpactDataSet* mImpactData = nullptr;
+		RE::Actor* mAggressor = nullptr;
+		RE::TESObjectREFR* mTarget = nullptr;
+		RE::NiPoint3 mhitPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
+		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
+		RE::BGSMaterialType* mMaterial;
+		Option mOption;
+	};
+
+	class VFXTaskSpell : public SKSE::detail::TaskDelegate
+	{
+	public:
+		VFXTaskSpell(RE::SpellItem* spell, RE::Actor* aggressor, RE::TESObjectREFR* target, Option option)
+			: mSpell(spell), mAggressor(aggressor), mTarget(target), mOption(option) {};
+
+		virtual void Run() override;
+		virtual void Dispose() override;
+
+	private:
+		RE::SpellItem* mSpell = nullptr;
+		RE::Actor* mAggressor = nullptr;
+		RE::TESObjectREFR* mTarget = nullptr;
+		Option mOption;
+
+		static void Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target);
+	};
+
+	class VFXTask : public SKSE::detail::TaskDelegate
+	{
+	public:
+		VFXTask(std::string VFXPath, RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, std::uint8_t vfxType, Option option)
+			: mVFXPath(VFXPath), mAggressor(aggressor), mTarget(target), mhitPosition(hitPosition), mHitDirection(hitDirection), mVFXType(VFXType(vfxType)), mOption(option) {};
 
 		enum VFXType : std::uint8_t {
 			Impact,
@@ -62,70 +89,56 @@ namespace Mus {
 		bool CreateArtVFX();
 
 		std::string mVFXPath = "";
-		RE::TESObjectREFR* mAggressor = nullptr;
+		RE::Actor* mAggressor = nullptr;
 		RE::TESObjectREFR* mTarget = nullptr;
-		RE::NiPoint3 mHitPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
+		RE::NiPoint3 mhitPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		VFXType mVFXType;
 		RE::NiAVObject* mTargetObj;
+		Option mOption;
 	};
 
-	class TaskEffectShader: public SKSE::detail::TaskDelegate
+	class SFXTaskSound : public SKSE::detail::TaskDelegate
 	{
 	public:
-		TaskEffectShader(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::TESEffectShader* effectShader)
-			: mAggressor(aggressor), mTarget(target), mEffectShader(effectShader) {};
-
-		void Run();
-		void Dispose();
-	private:
-		RE::TESObjectREFR* mAggressor = nullptr;
-		RE::TESObjectREFR* mTarget = nullptr;
-		RE::TESEffectShader* mEffectShader = nullptr;
-	};
-
-	class TaskArtObject : public SKSE::detail::TaskDelegate
-	{
-	public:
-		TaskArtObject(RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target, RE::BGSArtObject* artObject)
-			: mAggressor(aggressor), mTarget(target), mArtObject(artObject) {};
-
-		void Run();
-		void Dispose();
-	private:
-		RE::TESObjectREFR* mAggressor = nullptr;
-		RE::TESObjectREFR* mTarget = nullptr;
-		RE::BGSArtObject* mArtObject = nullptr;
-	};
-
-	class TaskSound : public SKSE::detail::TaskDelegate
-	{
-	public:
-		TaskSound(RE::NiPoint3 hitPoint, RE::BGSSoundDescriptorForm* sound1, RE::BGSSoundDescriptorForm* sound2)
-			: mHitPoint(hitPoint), mSound1(sound1), mSound2(sound2) {};
+		SFXTaskSound(RE::BGSSoundDescriptorForm* sound1, RE::BGSSoundDescriptorForm* sound2, RE::NiPoint3 hitPosition)
+			: mSound1(sound1), mSound2(sound2), mhitPosition(hitPosition) {};
 
 		void Run();
 		void Dispose();
 	private:
 		RE::BGSSoundDescriptorForm* mSound1 = nullptr;
 		RE::BGSSoundDescriptorForm* mSound2 = nullptr;
-		RE::NiPoint3 mHitPoint = RE::NiPoint3(0.0f, 0.0f, 0.0f);
+		RE::NiPoint3 mhitPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 	};
 
-	class TaskCastVFX : public SKSE::detail::TaskDelegate
+	class VFXTaskEffectShader : public SKSE::detail::TaskDelegate
 	{
 	public:
-		TaskCastVFX(RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target)
-			: mSpell(spell), mAggressor(aggressor), mTarget(target) {};
+		VFXTaskEffectShader(RE::TESEffectShader* effectShader, RE::Actor* aggressor, RE::TESObjectREFR* target, Option option)
+			: mEffectShader(effectShader), mAggressor(aggressor), mTarget(target), mOption(option) {};
 
-		virtual void Run() override;
-		virtual void Dispose() override;
-
+		void Run();
+		void Dispose();
 	private:
-		RE::SpellItem* mSpell = nullptr;
-		RE::TESObjectREFR* mAggressor = nullptr;
+		RE::Actor* mAggressor = nullptr;
 		RE::TESObjectREFR* mTarget = nullptr;
+		RE::TESEffectShader* mEffectShader = nullptr;
+		Option mOption;
+	};
 
-		static void Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target);
+	class VFXTaskArtObject : public SKSE::detail::TaskDelegate
+	{
+	public:
+		VFXTaskArtObject(RE::BGSArtObject* artObject, RE::Actor* aggressor, RE::TESObjectREFR* target, Option option)
+			: mArtObject(artObject), mAggressor(aggressor), mTarget(target), mOption(option) {};
+
+		void Run();
+		void Dispose();
+	private:
+		RE::Actor* mAggressor = nullptr;
+		RE::TESObjectREFR* mTarget = nullptr;
+		RE::BGSArtObject* mArtObject = nullptr;
+		Option mOption;
 	};
 }

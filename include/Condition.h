@@ -126,9 +126,9 @@ namespace Mus {
 			struct Option {
 				float Scale = 1.0f;
 				float Duration = 0.0f;
-				bool RandomHitDirection = false;
+				bool RandomDirection = false;
 			};
-			Option options;
+			Option option;
 
 			std::string fileName;
 			std::string originalCondition[ConditionOption::OptionTotal];
@@ -285,7 +285,7 @@ namespace Mus {
 			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
 			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
-			RE::BGSKeyword* keyword;
+			RE::BGSKeyword* keyword = nullptr;
 			std::uint32_t slot = 255;
 		};
 
