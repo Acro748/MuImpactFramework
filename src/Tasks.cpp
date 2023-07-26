@@ -171,7 +171,7 @@ namespace Mus {
 	{
 		if (!mAggressor)
 			return false;
-		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, mOption.Duration, mVFXPath.c_str(), mOption.RandomDirection ? TaskOptionManager::GetSingleton().GetRandomDirection() : mHitDirection, mhitPosition, mOption.Scale, 7, mTargetObj);
+		auto particle = RE::BSTempEffectParticle::Spawn(mAggressor->parentCell, mOption.Duration, mVFXPath.c_str(), mOption.RandomDirection ? TaskOptionManager::GetSingleton().GetRandomDirection() : mHitDirection, mhitPosition, mOption.Scale, 7, nullptr);
 		if (!particle)
 			return false;
 		auto processLists = RE::ProcessLists::GetSingleton();

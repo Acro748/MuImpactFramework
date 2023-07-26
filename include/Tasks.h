@@ -46,7 +46,7 @@ namespace Mus {
 		RE::TESObjectREFR* mTarget = nullptr;
 		RE::NiPoint3 mhitPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
-		RE::BGSMaterialType* mMaterial;
+		RE::BGSMaterialType* mMaterial = nullptr;
 		Option mOption;
 	};
 
@@ -94,7 +94,6 @@ namespace Mus {
 		RE::NiPoint3 mhitPosition = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		RE::NiPoint3 mHitDirection = RE::NiPoint3(0.0f, 0.0f, 0.0f);
 		VFXType mVFXType;
-		RE::NiAVObject* mTargetObj;
 		Option mOption;
 	};
 
