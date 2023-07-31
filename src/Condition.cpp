@@ -97,7 +97,7 @@ namespace Mus {
 				for (auto& strOr : splittedORs)
 				{
 					ConditionItem Item;
-					if (MultipleConfig::stringStartsWith(strOr, "NOT"))
+					if (stringStartsWith(strOr, "NOT"))
 					{
 						Item.NOT = true;
 						strOr.erase(0, 3);
@@ -155,13 +155,9 @@ namespace Mus {
 			std::vector<std::string> splitted = Config::split(line, "|");
 			if (splitted.size() == 1)
 			{
-				if (MultipleConfig::stringStartsWith(splitted.at(0), "0x"))
-					item.id = Config::getHex(splitted.at(0));
-				else
-				{
-					item.pluginName = splitted.at(0);
-					item.arg = splitted.at(0);
-				}
+				item.pluginName = splitted.at(0);
+				item.id = Config::getHex(splitted.at(0));
+				item.arg = splitted.at(0);
 			}
 			else if (splitted.size() == 2)
 			{
@@ -398,15 +394,15 @@ namespace Mus {
 	}
 	std::uint8_t ConditionManager::GetVFXType(std::string vfxPath)
 	{
-		std::uint8_t vfxType = VFXTask::VFXType::Impact;
+		std::uint8_t vfxType = VFXType::Impact;
 		if (vfxPath.empty())
-			return VFXTask::VFXType::None;
+			return VFXType::Invalid;
 
 		std::string newPath = "Meshes\\" + vfxPath;
 		RE::BSResourceNiBinaryStream binaryStream(newPath.c_str());
 		if (!binaryStream.good()) {
 			logger::error("Failed load to nif file - {}", newPath.c_str());
-			return VFXTask::VFXType::None;
+			return VFXType::Invalid;
 		}
 
 		std::uint8_t niStreamMemory[sizeof(RE::NiStream)];
@@ -426,7 +422,7 @@ namespace Mus {
 				auto manager = controller->AsNiControllerManager();
 				if (manager)
 				{
-					vfxType = VFXTask::VFXType::HitEffect;
+					vfxType = VFXType::HitEffect;
 					break;
 				}
 			}
@@ -434,7 +430,7 @@ namespace Mus {
 
 		NiStream_dtor(niStream);
 
-		logger::info("{} => {}", vfxPath, magic_enum::enum_name(VFXTask::VFXType(vfxType)).data());
+		logger::info("{} => {}", vfxPath, magic_enum::enum_name(VFXType(vfxType)).data());
 		return vfxType;
 	}
 

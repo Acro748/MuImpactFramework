@@ -56,11 +56,7 @@ namespace Mus {
             }
             else if (currentSetting == "[General]")
             {
-                if (variableName == "InstanceMode")
-                {
-                    InstanceMode = GetConfigSettingsBoolValue(variableValue);
-                }
-                else if (variableName == "EnableInanimateObject")
+                if (variableName == "EnableInanimateObject")
                 {
                     EnableInanimateObject = GetConfigSettingsBoolValue(variableValue);
                 }
@@ -71,10 +67,6 @@ namespace Mus {
                 else if (variableName == "SoundLimit")
                 {
                     SoundLimit = GetConfigSettingsUintValue(variableValue);
-                }
-                else if (variableName == "ProxyProjectileEnable")
-                {
-                    ProxyProjectileEnable = GetConfigSettingsBoolValue(variableValue);
                 }
                 else if (variableName == "EnableTimeCounter")
                 {
@@ -90,26 +82,18 @@ namespace Mus {
     {
         std::string configPath = GetRuntimeSKSEDirectory();
         configPath += SKSE::PluginDeclaration::GetSingleton()->GetName().data();
-        configPath += "\\";
 
-        auto configList = GetAllFiles(configPath);
-        concurrency::parallel_for_each(configList.begin(), configList.end(), [&](auto& filepath) {
-            if (filepath != "." && filepath != "..")
+        auto files = GetAllFiles(configPath);
+        concurrency::parallel_for_each(files.begin(), files.end(), [&](auto& file) {
+            std::u8string filename_utf8 = file.filename().u8string();
+            std::string filename(filename_utf8.begin(), filename_utf8.end());
+            if (filename != "." && filename != "..")
             {
-                if (stringEndsWith(filepath, ".ini"))
+                if (stringEndsWith(filename, ".ini"))
                 {
-                    std::string filename = ansi2utf8((split(filepath, "\\").end() - 1)->c_str());
                     logger::info("File found: {}", filename);
-
-                    std::ifstream file(filepath);
-
-                    if (!file.is_open())
-                    {
-                        lowLetter(filepath);
-                        file.open(filepath);
-                    }
-
-                    if (file.is_open())
+                    std::ifstream ifile(file);
+                    if (ifile.is_open())
                     {
                         ConditionManager::Condition condition;
                         condition.fileName = filename;
@@ -118,7 +102,7 @@ namespace Mus {
                         std::string line;
                         bool isAggressor = false;
                         bool isTarget = false;
-                        while (std::getline(file, line))
+                        while (std::getline(ifile, line))
                         {
                             //trim(line);
                             skipComments(line);

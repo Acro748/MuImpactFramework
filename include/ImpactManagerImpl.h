@@ -1,6 +1,7 @@
 #pragma once
 
 namespace Mus {
+	using Option = ConditionManager::Condition::Option;
 	class ImpactManagerImpl
 	{
 	public:
@@ -84,7 +85,7 @@ namespace Mus {
 			return ImpactDataSet.size() + Spell.size() + VFX.size() + Sound[0].size() + Sound[1].size() + EffectShader.size() + ArtObject.size();
 		};
 
-		void LoadImpactEffects(const HitEvent& e);
+		void LoadEffects(const HitEvent& e);
 	private:
 		std::unordered_map<RE::FormID, ImpactDataSet_> ImpactDataSet;
 		std::unordered_map<RE::FormID, SpellItem_> Spell;
@@ -93,11 +94,18 @@ namespace Mus {
 		std::unordered_map<RE::FormID, TESEffectShader_> EffectShader;
 		std::unordered_map<RE::FormID, BGSArtObject_> ArtObject;
 
-		void LoadImpactData(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadSpell(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadVFX(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadSound(RE::NiPoint3 hitPosition, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadEffectShader(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
-		void LoadArtObject(RE::Actor* aggressor, RE::TESObjectREFR* target, bool instance = Config::GetSingleton().GetInstanceMode());
+		void LoadImpactData(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::BGSMaterialType* material, RE::NiAVObject* targetObj = nullptr);
+		void LoadSpell(RE::Actor* aggressor, RE::TESObjectREFR* target);
+		void LoadVFX(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj = nullptr);
+		void LoadSound(RE::NiPoint3 hitPosition);
+		void LoadEffectShader(RE::Actor* aggressor, RE::TESObjectREFR* target);
+		void LoadArtObject(RE::Actor* aggressor, RE::TESObjectREFR* target);
+
+		RE::BGSImpactData* GetImpactDataTempForm();
+		RE::BGSArtObject* GetArtObjectTempForm();
+		template <typename T>
+		T* GetNewForm();
+		static void Cast(RE::BSScript::IVirtualMachine* VMinternal, std::uint32_t stackId, RE::SpellItem* spell, RE::TESObjectREFR* aggressor, RE::TESObjectREFR* target);
+		RE::NiPoint3 GetRandomDirection();
 	};
 }

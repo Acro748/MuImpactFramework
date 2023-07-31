@@ -110,6 +110,13 @@ namespace Mus {
 		};
 		typedef std::vector<ConditionItem> ConditionItemOr;
 
+		enum VFXType : std::uint8_t {
+			Impact,
+			HitEffect,
+			Total,
+
+			Invalid
+		};
 		struct VFXInfo {
 			std::string vfxPath;
 			std::uint8_t vfxType;
@@ -177,6 +184,13 @@ namespace Mus {
 					OR.arg2.empty() ? "" : "|", OR.arg2.empty() ? "" : OR.arg2,
 					isTrue ? "True" : "False");
 			}
+		}
+
+		inline bool stringStartsWith(std::string str, std::string prefix)
+		{
+			str = lowLetter(str);
+			prefix = lowLetter(prefix);
+			return str.starts_with(prefix);
 		}
 	};
 

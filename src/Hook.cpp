@@ -4,6 +4,7 @@
 namespace Mus {
 	constexpr auto ProjectileHitFunction = REL::VariantID(43022, 44213, 0x0077E4E0);
 
+	std::mutex event_lock;
 	EventDispatcherImpl<HitEvent> g_HitEventDispatcher;
 	constexpr RE::FormID EquipType_BothHands = 0x13F45;
 
@@ -79,22 +80,32 @@ namespace Mus {
 		return damage;
 	}
 
-	typedef RE::TESObjectREFR* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
+	typedef std::int64_t (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
 	REL::Relocation<_onProjectileHit> onProjectileHit_(ProjectileHitFunction);
-	RE::TESObjectREFR* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
+	std::int64_t onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
-		RE::TESObjectREFR* result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
-		if (!projectile || !projectile->GetProjectileRuntimeData().shooter)
+		std::int64_t result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+
+		auto& projectileRuntimeData = projectile->GetProjectileRuntimeData();
+		if (!projectile || !projectileRuntimeData.shooter)
 			return result;
+
 		RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
 		if (!actorTarget && !Config::GetSingleton().GetEnableInanimateObject())
 			return result;
+
+		if (projectileRuntimeData.weaponSource && actorTarget)
+			return result; //use TESHitEvent instead of this
+
+		std::lock_guard locker(event_lock);
 		TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
+
 		HitEvent e;
 		e.eventType = HitEvent::EventType::Projectile;
-		e.aggressor = skyrim_cast<RE::Actor*>(projectile->GetProjectileRuntimeData().shooter.get().get());
+		e.aggressor = skyrim_cast<RE::Actor*>(projectileRuntimeData.shooter.get().get());
 		if (!e.aggressor)
 			return result;
+
 		e.target = target;
 		e.hitPosition = position;
 		e.hitDirection = direction;
@@ -111,20 +122,20 @@ namespace Mus {
 			e.shoutNum = aggressorProcess->high->currentShoutVariation;
 			e.attackType = HitEvent::AttackType::Shout;
 		}
-		else if (projectile->GetProjectileRuntimeData().spell)
+		else if (projectileRuntimeData.spell)
 		{
-			e.spell = skyrim_cast<RE::SpellItem*>(projectile->GetProjectileRuntimeData().spell);
+			e.spell = skyrim_cast<RE::SpellItem*>(projectileRuntimeData.spell);
 			RE::TESObjectWEAP* weapon = nullptr;
 			if (e.spell && e.spell->equipSlot && e.spell->equipSlot->formID == EquipType_BothHands)
 			{
 				e.attackHand = HitEvent::AttackHand::Both;
 			}
-			else if (projectile->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kLeftHand)
+			else if (projectileRuntimeData.castingSource == RE::MagicSystem::CastingSource::kLeftHand)
 			{
 				e.attackHand = HitEvent::AttackHand::Left;
 				weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(true));
 			}
-			else if (projectile->GetProjectileRuntimeData().castingSource == RE::MagicSystem::CastingSource::kRightHand)
+			else if (projectileRuntimeData.castingSource == RE::MagicSystem::CastingSource::kRightHand)
 			{
 				e.attackHand = HitEvent::AttackHand::Right;
 				weapon = skyrim_cast<RE::TESObjectWEAP*>(e.aggressor->GetEquippedObject(false));
@@ -139,20 +150,12 @@ namespace Mus {
 			else
 				e.attackType = HitEvent::AttackType::Spell;
 		}
-		else if (projectile->GetProjectileRuntimeData().weaponSource)
+		else if (projectileRuntimeData.weaponSource)
 		{
 			if (actorTarget)
-			{
 				return result; //use TESHitEvent instead of this
 
-				if (auto targetProcess = actorTarget->GetActorRuntimeData().currentProcess;
-					targetProcess && targetProcess->middleHigh && targetProcess->middleHigh->lastHitData)
-				{
-					e.damage = targetProcess->middleHigh->lastHitData->totalDamage;
-					e.flags = targetProcess->middleHigh->lastHitData->flags;
-				}
-			}
-			e.weapon = projectile->GetProjectileRuntimeData().weaponSource;
+			e.weapon = projectileRuntimeData.weaponSource;
 			e.weaponType = e.weapon->GetWeaponType();
 			if (e.weapon->equipSlot && e.weapon->equipSlot->formID == EquipType_BothHands)
 				e.attackHand = HitEvent::AttackHand::Both; //Is it only bow and crossbow that passes through this?
@@ -167,7 +170,7 @@ namespace Mus {
 		//damage calculate
 		if (actorTarget)//no inanimated object
 		{
-			if (auto magicEffect = projectile->GetProjectileRuntimeData().spell; magicEffect)
+			if (auto magicEffect = projectileRuntimeData.spell; magicEffect)
 			{
 				auto targetActorValues = actorTarget->AsActorValueOwner();
 				e.damage += GetMagicEffectInfo(magicEffect, targetActorValues, e);
@@ -185,18 +188,22 @@ namespace Mus {
 		EventResult ProcessEvent(const RE::TESHitEvent* evn, RE::BSTEventSource<RE::TESHitEvent>*) override {
 			if (!evn || !evn->cause || !evn->target)
 				return EventResult::kContinue;
-			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 
 			RE::Actor* aggressor = skyrim_cast<RE::Actor*>(evn->cause.get());
 			RE::Actor* target = skyrim_cast<RE::Actor*>(evn->target.get());
 			if (!aggressor || !target)
 				return EventResult::kContinue;
+
 			auto target_aiprocess = target ? target->GetActorRuntimeData().currentProcess : nullptr;
 			if (!target_aiprocess || !target_aiprocess->middleHigh || !target_aiprocess->middleHigh->lastHitData)
 				return EventResult::kContinue;
+
 			RE::HitData* hitData = target_aiprocess->middleHigh->lastHitData;
 			if (IsEqual(hitData->hitPosition, emptyPoint))
 				return EventResult::kContinue;
+
+			std::lock_guard locker(event_lock);
+			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 
 			HitEvent e;
 			e.eventType = HitEvent::EventType::HitData;

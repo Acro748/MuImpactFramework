@@ -67,7 +67,7 @@ namespace Mus {
 				}
 			}
 		}
-		LoadImpactEffects(e);
+		LoadEffects(e);
 		TimeLogger(true, Config::GetSingleton().GetEnableTimeCounter());
 	}
 }

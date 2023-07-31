@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.7.2
+        VERSION 0.7.3
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -29,7 +29,6 @@ set(headers
         include/Hook.h
         include/Condition.h
         include/Config.h
-        include/Tasks.h
         include/ImpactManagerImpl.h
         include/ImpactManager.h
 )
@@ -40,7 +39,6 @@ set(sources
         src/Hook.cpp
         src/Condition.cpp
         src/Config.cpp
-        src/Tasks.cpp
         src/ImpactManagerImpl.cpp
         src/ImpactManager.cpp
         src/Main.cpp

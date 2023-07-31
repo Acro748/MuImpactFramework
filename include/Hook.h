@@ -119,17 +119,14 @@ namespace Mus {
 		~EventDispatcherImpl() {}
 
 		void addListener(IEventListener<Event>* listener) override {
-			std::lock_guard locker(m_lock);
 			m_listeners.insert(listener);
 			m_cacheDirt = true;
 		};
 		void removeListener(IEventListener<Event>* listener) override {
-			std::lock_guard locker(m_lock);
 			m_listeners.erase(listener);
 			m_cacheDirt = true;
 		};
 		void dispatch(const Event& event) override {
-			std::lock_guard locker(m_lock);
 			if (m_cacheDirt)
 			{
 				m_caches.clear();
@@ -146,8 +143,6 @@ namespace Mus {
 		std::unordered_set<IEventListener<Event>*> m_listeners;
 		std::vector<IEventListener<Event>*> m_caches;
 		bool m_cacheDirt = false;
-
-		std::mutex m_lock;
 	};
 
 	extern EventDispatcherImpl<HitEvent> g_HitEventDispatcher;

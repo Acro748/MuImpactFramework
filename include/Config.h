@@ -19,9 +19,6 @@ namespace Mus {
         }
 
         //General
-        [[nodiscard]] inline bool GetInstanceMode() const noexcept {
-            return InstanceMode;
-        }
         [[nodiscard]] inline bool GetEnableInanimateObject() const noexcept {
             return EnableInanimateObject;
         }
@@ -30,9 +27,6 @@ namespace Mus {
         }
         [[nodiscard]] inline std::uint32_t GetSoundLimit() const noexcept {
             return SoundLimit;
-        }
-        [[nodiscard]] inline bool GetProxyProjectileEnable() const noexcept {
-            return ProxyProjectileEnable;
         }
         [[nodiscard]] inline std::vector<std::uint32_t> GetRemoveList() const noexcept {
             return RemoveList;
@@ -47,12 +41,10 @@ namespace Mus {
         spdlog::level::level_enum flushLevel{ spdlog::level::level_enum::trace };
 
         //General
-        bool InstanceMode = false;
         bool EnableInanimateObject = false;
         std::uint32_t ArtObjectVFXLimit = 32;
         std::uint32_t SoundLimit = 32;
 
-        bool ProxyProjectileEnable = true;
         std::vector<std::uint32_t> RemoveList;
         bool EnableTimeCounter = false;
     public:
@@ -224,86 +216,27 @@ namespace Mus {
             }
             return value;
         }
-
-        inline static std::string ws2s(const std::wstring& wstr)
-        {
-            using convert_typeX = std::codecvt_utf8<wchar_t>;
-            std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-            return converterX.to_bytes(wstr);
-        }
-        inline static std::string ansi2utf8(std::string str)
-        {
-            std::wstring unicode;
-            const char* ansi = str.c_str();
-            std::size_t ansi_size = str.size();
-            do {
-                if ((nullptr == ansi) || (0 == ansi_size)) {
-                    break;
-                }
-                unicode.clear();
-
-                int required_cch = ::MultiByteToWideChar(
-                    CP_ACP,
-                    0,
-                    ansi, static_cast<int>(ansi_size),
-                    nullptr, 0
-                );
-
-                if (0 == required_cch) {
-                    break;
-                }
-                unicode.resize(required_cch);
-
-                if (0 == ::MultiByteToWideChar(
-                    CP_ACP,
-                    0,
-                    ansi, static_cast<int>(ansi_size),
-                    const_cast<wchar_t*>(unicode.c_str()), static_cast<int>(unicode.size())
-                )) {
-                    break;
-                }
-            } while (false);
-            return ws2s(unicode);
-        }
     };
 
     class MultipleConfig : public Config {
     public:
         bool LoadSetupConfig();
 
-        static inline std::vector<std::string> GetAllFiles(std::string folder)
+        static inline std::vector<std::filesystem::path> GetAllFiles(std::string folder)
         {
-            std::vector<std::string> names;
+            std::vector<std::filesystem::path> files;
             for (const auto& file : std::filesystem::directory_iterator(folder))
             {
-                names.emplace_back(file.path().string());
+                files.emplace_back(file.path());
             }
-            return names;
-        }
-
-        static inline bool stringStartsWith(std::string str, std::string prefix)
-        {
-            str = lowLetter(str);
-            prefix = lowLetter(prefix);
-            if (str.find(prefix) == 0)
-                return true;
-            else
-                return false;
+            return files;
         }
 
         static inline bool stringEndsWith(std::string str, std::string suffix)
         {
             str = lowLetter(str);
             suffix = lowLetter(suffix);
-            if (str.length() >= suffix.length())
-            {
-                return (0 == str.compare(str.length() - suffix.length(), suffix.length(), suffix));
-            }
-            else
-            {
-                return false;
-            }
+            return str.ends_with(suffix);
         }
     };
 }
