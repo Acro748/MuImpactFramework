@@ -85,9 +85,11 @@ namespace Mus {
 	std::int64_t onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
 		std::int64_t result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+		if (!projectile)
+			return result;
 
 		auto& projectileRuntimeData = projectile->GetProjectileRuntimeData();
-		if (!projectile || !projectileRuntimeData.shooter)
+		if (!projectileRuntimeData.shooter)
 			return result;
 
 		RE::Actor* actorTarget = skyrim_cast<RE::Actor*>(target);
