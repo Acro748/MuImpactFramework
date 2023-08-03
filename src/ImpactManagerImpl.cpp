@@ -163,6 +163,8 @@ namespace Mus {
 
 			if (!audioManager || !impactManager)
 				continue;
+			if (!found->second->sound1 && !found->second->sound2)
+				continue;
 
 			RE::BSSoundHandle handle1, handle2;
 			if (found->second->sound1)
@@ -178,7 +180,10 @@ namespace Mus {
 				found->second->sound1 ? true : false,
 				found->second->sound2 ? true : false
 			};
-			impactManager->PlayImpactDataSounds(sound);
+			if (impactManager->PlayImpactDataSounds(sound))
+				logger::trace("create ImpactSFX {:x} for {:x} {}", impactData.second.item->formID, target ? target->formID : 0, target ? target->GetName() : "Inanimate Object");
+			else
+				logger::error("couldn't create ImpactSFX {:x} for {:x} {}", impactData.second.item->formID, target ? target->formID : 0, target ? target->GetName() : "Inanimate Object");
 		}
 	}
 
@@ -190,7 +195,10 @@ namespace Mus {
 		for (const auto& spell : Spell)
 		{
 			if (spell.second.item)
+			{
 				Cast(nullptr, 0, spell.second.item, target, target);
+				logger::trace("create Spell Effect {:x} for {:x} {}", spell.second.item->formID, target->formID, target->GetName());
+			}
 		}
 	}
 
@@ -236,7 +244,10 @@ namespace Mus {
 				break;
 			}
 
-			logger::debug("{}create VFX({}) {} on ({}, {}, {}) for {:x} {}", isCreated ? "couldn't " : "", magic_enum::enum_name(ConditionManager::VFXType(VFX.second.vfxType)).data(), VFX.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
+			if (isCreated)
+				logger::trace("create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX.second.vfxType)).data(), VFX.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
+			else
+				logger::error("couldn't create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX.second.vfxType)).data(), VFX.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
 		}
 	}
 
@@ -276,7 +287,10 @@ namespace Mus {
 				sound1 ? true : false,
 				sound2 ? true : false
 			};
-			impactManager->PlayImpactDataSounds(sound);
+			if (impactManager->PlayImpactDataSounds(sound))
+				logger::trace("create Sound {:x}/{:x}", sound1 ? sound1->formID : 0, sound2 ? sound2->formID : 0);
+			else
+				logger::error("couldn't create Sound {:x}/{:x}", sound1 ? sound1->formID : 0, sound2 ? sound2->formID : 0);
 		}
 	}
 
@@ -290,7 +304,10 @@ namespace Mus {
 			if (!effectShader.second.item)
 				continue;
 			auto hitShader = target->InstantiateHitShader(effectShader.second.item, effectShader.second.option.Duration, nullptr, false, false);
-			logger::debug("{}create EffectShader for {:x} {}", hitShader ? "" : "couldn't ", target->formID, target->GetName());
+			if (hitShader)
+				logger::trace("create EffectShader for {:x} {}", target->formID, target->GetName());
+			else
+				logger::error("couldn't create EffectShader for {:x} {}", target->formID, target->GetName());
 		}
 	}
 
@@ -304,10 +321,10 @@ namespace Mus {
 			if (artObject.second.item)
 				continue;;
 			auto ArtObject = target->InstantiateHitArt(artObject.second.item, artObject.second.option.Duration, nullptr, false, false);
-			if (!ArtObject)
-				continue;
-			logger::debug("{}create EffectShader for {:x} {}", ArtObject ? "" : "couldn't ", target->formID, target->GetName());
-			return;
+			if (ArtObject)
+				logger::trace("create EffectShader for {:x} {}", target->formID, target->GetName());
+			else
+				logger::error("couldn't create EffectShader for {:x} {}", target->formID, target->GetName());
 		}
 	}
 

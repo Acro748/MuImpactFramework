@@ -34,6 +34,9 @@ namespace Mus {
         [[nodiscard]] inline bool GetEnableTimeCounter() const noexcept {
             return EnableTimeCounter;
         }
+        [[nodiscard]] inline bool GetEnableProjectileHook() const noexcept {
+            return EnableProjectileHook;
+        }
         
     private:
         //Debug
@@ -47,6 +50,7 @@ namespace Mus {
 
         std::vector<std::uint32_t> RemoveList;
         bool EnableTimeCounter = false;
+        bool EnableProjectileHook = true;
     public:
         // trim from start (in place)
         inline static void ltrim(std::string& s)

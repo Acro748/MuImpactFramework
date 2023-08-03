@@ -72,6 +72,10 @@ namespace Mus {
                 {
                     EnableTimeCounter = GetConfigSettingsBoolValue(variableValue);
                 }
+                else if (variableName == "EnableProjectileHook")
+                {
+                    EnableProjectileHook = GetConfigSettingsBoolValue(variableValue);
+                }
             }
         }
         logger::info("Config loaded done");
@@ -97,7 +101,6 @@ namespace Mus {
                     {
                         ConditionManager::Condition condition;
                         condition.fileName = filename;
-                        std::string presetfile;
 
                         std::string line;
                         bool isAggressor = false;
@@ -342,8 +345,10 @@ namespace Mus {
                                 }
                             }
                         }
-                        if (ConditionManager::GetSingleton().RegisterCondition(condition, presetfile))
+                        if (ConditionManager::GetSingleton().RegisterCondition(condition))
                             logger::info("Registered Condition file : {}", filename);
+                        else
+                            logger::error("There is no valid effect! : {}", condition.fileName);
                     }
                 }
             }

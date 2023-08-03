@@ -71,10 +71,20 @@ namespace Mus {
 		return found_condition;
 	}
 
-	bool ConditionManager::RegisterCondition(Condition condition, std::string configPath)
+	bool ConditionManager::RegisterCondition(Condition condition)
 	{
-		ConditionList.push_back(ParseConditions(condition));
-		return true;
+		if (condition.ImpactDataSets.size() +
+			condition.SpellItems.size() +
+			condition.VFXItems.size() +
+			condition.SoundDescriptor1Items.size() +
+			condition.SoundDescriptor2Items.size() +
+			condition.EffectShaderItems.size() +
+			condition.ArtObjectItems.size() > 0)
+		{
+			ConditionList.push_back(ParseConditions(condition));
+			return true;
+		}
+		return false;
 	}
 
 	const ConditionManager::Condition ConditionManager::ParseConditions(Condition condition)
@@ -155,7 +165,6 @@ namespace Mus {
 			std::vector<std::string> splitted = Config::split(line, "|");
 			if (splitted.size() == 1)
 			{
-				item.pluginName = splitted.at(0);
 				item.id = Config::getHex(splitted.at(0));
 				item.arg = splitted.at(0);
 			}

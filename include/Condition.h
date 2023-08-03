@@ -143,7 +143,7 @@ namespace Mus {
 		};
 		static RE::ActorValue GetActorValueByString(std::string str);
 
-		bool RegisterCondition(Condition condition, std::string configPath);
+		bool RegisterCondition(Condition condition);
 
 		const concurrency::concurrent_vector<Condition> GetCondition(const HitEvent& e);
 
@@ -180,7 +180,7 @@ namespace Mus {
 			else
 			{
 				logger::debug("{} {:x} : {} Condition {}{}({}{}{:x}{}{}) is {}", obj->GetName(), obj->formID,
-					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.pluginName == "" ? "" : "|", OR.id,
+					magic_enum::enum_name(ConditionOption(option)).data(), OR.NOT ? "NOT " : "", typestr, OR.pluginName, OR.pluginName.empty() ? "" : "|", OR.id,
 					OR.arg2.empty() ? "" : "|", OR.arg2.empty() ? "" : OR.arg2,
 					isTrue ? "True" : "False");
 			}

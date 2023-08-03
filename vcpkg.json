@@ -1,10 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
   "name": "muimpactframework",
-  "version-string": "0.5.0",
+  "version-string": "0.7.4",
   "port-version": 0,
   "description": "MuImpactFramework by Acro",
-  "homepage": "https://github.com/Acro748/MusTeraElinRaceController",
+  "homepage": "https://github.com/Acro748/MuImpactFramework",
   "license": "Apache-2.0",
   "features": {
     "plugin": {
@@ -14,7 +14,8 @@
         "commonlibsse-ng",
         "magic-enum",
         "jsoncpp",
-        "xbyak"
+        "xbyak",
+        "detours"
       ]
     }
   },

@@ -13,7 +13,8 @@
           "xbyak",
           "gluino",
           "script-extender-common",
-          "skse"
+          "skse",
+          "detours"
         ]
       }
     ]

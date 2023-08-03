@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.7.3
+        VERSION 0.7.4
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -58,6 +58,7 @@ source_group(
 find_package(CommonLibSSE REQUIRED)
 find_package(ryml CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
+find_package(detours)
 find_path(ARTICUNO_INCLUDE_DIRS "articuno/articuno.h")
 
 add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
@@ -82,18 +83,20 @@ target_include_directories(${PROJECT_NAME}
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src>
         $<INSTALL_INTERFACE:src>
-        ${ARTICUNO_INCLUDE_DIRS})
+        ${DETOURS_INCLUDE_DIRS}
+        ${ARTICUNO_INCLUDE_DIRS}
+)
 
 target_include_directories(${PROJECT_NAME}
         PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/detours/include>)
+)
 
 target_link_libraries(${PROJECT_NAME}
         PRIVATE
         ryml::ryml
         magic_enum::magic_enum
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/detours/lib.X64/detours.lib>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/x64-windows-skse/lib/detours.lib>
 )
 
 target_precompile_headers(${PROJECT_NAME}

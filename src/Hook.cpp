@@ -80,11 +80,11 @@ namespace Mus {
 		return damage;
 	}
 
-	typedef std::int64_t (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
+	typedef RE::TESObjectREFR* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
 	REL::Relocation<_onProjectileHit> onProjectileHit_(ProjectileHitFunction);
-	std::int64_t onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
+	RE::TESObjectREFR* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
-		std::int64_t result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+		RE::TESObjectREFR* result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
 		if (!projectile)
 			return result;
 
@@ -204,7 +204,9 @@ namespace Mus {
 			if (IsEqual(hitData->hitPosition, emptyPoint))
 				return EventResult::kContinue;
 
-			std::lock_guard locker(event_lock);
+			if (Config::GetSingleton().GetEnableProjectileHook())
+				event_lock.lock();
+
 			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 
 			HitEvent e;
@@ -254,6 +256,10 @@ namespace Mus {
 			}
 			e.attackType = HitEvent::AttackType::Weapon;
 			g_HitEventDispatcher.dispatch(e);
+
+			if (Config::GetSingleton().GetEnableProjectileHook())
+				event_lock.unlock();
+
 			return EventResult::kContinue;
 		};
 	private:
@@ -262,10 +268,13 @@ namespace Mus {
 	void hook()
 	{
 		logger::info("Skyrim Hooking...");
-		DetourRestoreAfterWith();
-		DetourTransactionBegin();
-		DetourAttach((void**)&onProjectileHit_, (void*)&onProjectileHit);
-		DetourTransactionCommit();
+		if (Config::GetSingleton().GetEnableProjectileHook())
+		{
+			DetourRestoreAfterWith();
+			DetourTransactionBegin();
+			DetourAttach(&(PVOID&)onProjectileHit_, onProjectileHit);
+			DetourTransactionCommit();
+		}
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
 			EventHolder->AddEventSink<RE::TESHitEvent>(&tesHitEvent);
@@ -274,10 +283,13 @@ namespace Mus {
 
 	void unhook()
 	{
-		DetourRestoreAfterWith();
-		DetourTransactionBegin();
-		DetourDetach((void**)&onProjectileHit_, (void*)&onProjectileHit);
-		DetourTransactionCommit();
+		if (Config::GetSingleton().GetEnableProjectileHook())
+		{
+			DetourRestoreAfterWith();
+			DetourTransactionBegin();
+			DetourDetach(&(PVOID&)onProjectileHit_, onProjectileHit);
+			DetourTransactionCommit();
+		}
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
 			EventHolder->RemoveEventSink<RE::TESHitEvent>(&tesHitEvent);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "detours.h"
+#include <detours/detours.h>
 
 namespace Mus {
 #define MEMBER_FN_PREFIX(className)	\
