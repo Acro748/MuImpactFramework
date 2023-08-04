@@ -72,10 +72,6 @@ namespace Mus {
                 {
                     EnableTimeCounter = GetConfigSettingsBoolValue(variableValue);
                 }
-                else if (variableName == "EnableProjectileHook")
-                {
-                    EnableProjectileHook = GetConfigSettingsBoolValue(variableValue);
-                }
             }
         }
         logger::info("Config loaded done");

@@ -58,7 +58,6 @@ source_group(
 find_package(CommonLibSSE REQUIRED)
 find_package(ryml CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-find_package(detours)
 find_path(ARTICUNO_INCLUDE_DIRS "articuno/articuno.h")
 
 add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
@@ -96,7 +95,6 @@ target_link_libraries(${PROJECT_NAME}
         PRIVATE
         ryml::ryml
         magic_enum::magic_enum
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed/x64-windows-skse/lib/detours.lib>
 )
 
 target_precompile_headers(${PROJECT_NAME}

@@ -14,8 +14,7 @@
         "commonlibsse-ng",
         "magic-enum",
         "jsoncpp",
-        "xbyak",
-        "detours"
+        "xbyak"
       ]
     }
   },

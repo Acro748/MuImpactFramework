@@ -2,8 +2,6 @@
 #include <xbyak/xbyak.h>
 
 namespace Mus {
-	constexpr auto ProjectileHitFunction = REL::VariantID(43022, 44213, 0x0077E4E0);
-
 	std::mutex event_lock;
 	EventDispatcherImpl<HitEvent> g_HitEventDispatcher;
 	constexpr RE::FormID EquipType_BothHands = 0x13F45;
@@ -81,10 +79,10 @@ namespace Mus {
 	}
 
 	typedef RE::TESObjectREFR* (*_onProjectileHit)(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags);
-	REL::Relocation<_onProjectileHit> onProjectileHit_(ProjectileHitFunction);
+	REL::Relocation<_onProjectileHit> onProjectileHitOrig;
 	RE::TESObjectREFR* onProjectileHit(RE::Projectile* projectile, RE::TESObjectREFR* target, RE::NiPoint3 position, RE::NiPoint3 direction, RE::MATERIAL_ID materialID, std::uint8_t flags)
 	{
-		RE::TESObjectREFR* result = onProjectileHit_(projectile, target, position, direction, materialID, flags);
+		RE::TESObjectREFR* result = onProjectileHitOrig(projectile, target, position, direction, materialID, flags);
 		if (!projectile)
 			return result;
 
@@ -204,8 +202,7 @@ namespace Mus {
 			if (IsEqual(hitData->hitPosition, emptyPoint))
 				return EventResult::kContinue;
 
-			if (Config::GetSingleton().GetEnableProjectileHook())
-				event_lock.lock();
+			std::lock_guard locker(event_lock);
 
 			TimeLogger(false, Config::GetSingleton().GetEnableTimeCounter());
 
@@ -257,9 +254,6 @@ namespace Mus {
 			e.attackType = HitEvent::AttackType::Weapon;
 			g_HitEventDispatcher.dispatch(e);
 
-			if (Config::GetSingleton().GetEnableProjectileHook())
-				event_lock.unlock();
-
 			return EventResult::kContinue;
 		};
 	private:
@@ -268,31 +262,15 @@ namespace Mus {
 	void hook()
 	{
 		logger::info("Skyrim Hooking...");
-		if (Config::GetSingleton().GetEnableProjectileHook())
-		{
-			DetourRestoreAfterWith();
-			DetourTransactionBegin();
-			DetourAttach(&(PVOID&)onProjectileHit_, onProjectileHit);
-			DetourTransactionCommit();
-		}
+
+		constexpr auto ProjectileHookFunctionAlt = REL::VariantID(42943, 44123, 0x777A30);
+		constexpr auto ProjectileHookFunctionOffset = REL::VariantOffset(0x410, 0x407, 0x410);
+		auto& trampoline = SKSE::GetTrampoline();
+		trampoline.create(32);
+		onProjectileHitOrig = trampoline.write_call<5>(ProjectileHookFunctionAlt.address() + ProjectileHookFunctionOffset.offset(), onProjectileHit);
 
 		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
 			EventHolder->AddEventSink<RE::TESHitEvent>(&tesHitEvent);
-		}
-	}
-
-	void unhook()
-	{
-		if (Config::GetSingleton().GetEnableProjectileHook())
-		{
-			DetourRestoreAfterWith();
-			DetourTransactionBegin();
-			DetourDetach(&(PVOID&)onProjectileHit_, onProjectileHit);
-			DetourTransactionCommit();
-		}
-
-		if (const auto EventHolder = RE::ScriptEventSourceHolder::GetSingleton(); EventHolder) {
-			EventHolder->RemoveEventSink<RE::TESHitEvent>(&tesHitEvent);
 		}
 	}
 }
