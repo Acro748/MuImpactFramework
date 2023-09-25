@@ -68,6 +68,10 @@ namespace Mus {
                 {
                     SoundLimit = GetConfigSettingsUintValue(variableValue);
                 }
+                else if (variableName == "Persistent")
+                {
+                    Persistent = GetConfigSettingsBoolValue(variableValue);
+                }
                 else if (variableName == "EnableTimeCounter")
                 {
                     EnableTimeCounter = GetConfigSettingsBoolValue(variableValue);
@@ -331,7 +335,7 @@ namespace Mus {
                                                 condition.option.Duration = std::stof(option_arg.at(1));
                                         }
                                     }
-                                } 
+                                }
                                 else
                                 {
                                     if (isAggressor)

@@ -28,8 +28,8 @@ namespace Mus {
         [[nodiscard]] inline std::uint32_t GetSoundLimit() const noexcept {
             return SoundLimit;
         }
-        [[nodiscard]] inline std::vector<std::uint32_t> GetRemoveList() const noexcept {
-            return RemoveList;
+        [[nodiscard]] inline bool GetPersistent() const noexcept {
+            return Persistent;
         }
         [[nodiscard]] inline bool GetEnableTimeCounter() const noexcept {
             return EnableTimeCounter;
@@ -44,8 +44,7 @@ namespace Mus {
         bool EnableInanimateObject = false;
         std::uint32_t ArtObjectVFXLimit = 32;
         std::uint32_t SoundLimit = 32;
-
-        std::vector<std::uint32_t> RemoveList;
+        bool Persistent = false;
         bool EnableTimeCounter = false;
     public:
         // trim from start (in place)

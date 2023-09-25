@@ -143,13 +143,22 @@ namespace Mus {
 				continue;
 
 			RE::BSTempEffectParticle* particle = nullptr;
-			if (processLists)
-				particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, impactData.second.option.Duration, found->second->GetModel(), impactData.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, impactData.second.option.Scale, 7, nullptr);
+			if (aggressor && aggressor->parentCell)
+				particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, 0.0f, found->second->GetModel(), impactData.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, impactData.second.option.Scale, 7, nullptr);
+			else if (target && target->parentCell)
+				particle = RE::BSTempEffectParticle::Spawn(target->parentCell, 0.0f, found->second->GetModel(), impactData.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, impactData.second.option.Scale, 7, nullptr);
 			if (particle)
 			{
-				processLists->globalEffectsLock.Lock();
-				processLists->globalTempEffects.emplace_back(particle);
-				processLists->globalEffectsLock.Unlock();
+				if (Config::GetSingleton().GetPersistent())
+				{
+					processLists->globalEffectsLock.Lock();
+					auto effectFound = std::find_if(processLists->globalTempEffects.begin(), processLists->globalTempEffects.end(), [&](RE::NiPointer<RE::BSTempEffect>& gEffect) {
+						return gEffect.get() == particle;
+						});
+					if (effectFound == processLists->globalTempEffects.end())
+						processLists->globalTempEffects.emplace_back(particle);
+					processLists->globalEffectsLock.Unlock();
+				}
 				logger::trace("create ImpactVFX {:x} for {:x} {}", impactData.second.item->formID, target ? target->formID : 0, target ? target->GetName() : "Inanimate Object");
 			}
 			else
@@ -218,14 +227,21 @@ namespace Mus {
 					break;
 				RE::BSTempEffectParticle* particle = nullptr;
 				if (aggressor && aggressor->parentCell)
-					particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, VFX.second.option.Duration, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
+					particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, 0.0f, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
 				else if (target && target->parentCell)
-					particle = RE::BSTempEffectParticle::Spawn(target->parentCell, VFX.second.option.Duration, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
+					particle = RE::BSTempEffectParticle::Spawn(target->parentCell, 0.0f, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
 				if (!particle)
 					break;
-				processLists->globalEffectsLock.Lock();
-				processLists->globalTempEffects.emplace_back(particle);
-				processLists->globalEffectsLock.Unlock();
+				if (Config::GetSingleton().GetPersistent())
+				{
+					processLists->globalEffectsLock.Lock();
+					auto effectFound = std::find_if(processLists->globalTempEffects.begin(), processLists->globalTempEffects.end(), [&](RE::NiPointer<RE::BSTempEffect>& gEffect) {
+						return gEffect.get() == particle;
+						});
+					if (effectFound == processLists->globalTempEffects.end())
+						processLists->globalTempEffects.emplace_back(particle);
+					processLists->globalEffectsLock.Unlock();
+				}
 				isCreated = true;
 			}
 				break;

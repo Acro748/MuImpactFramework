@@ -134,15 +134,9 @@ namespace {
         hook();
     }
 
-    class ConfigLoader : //make late load in case that create a virtual form in other mods
+    struct ConfigLoader : //make late load in case that create a virtual form in other mods
         public RE::BSTEventSink<RE::MenuOpenCloseEvent> {
     public:
-        [[nodiscard]] static ConfigLoader& GetSingleton() {
-            static ConfigLoader instance;
-            return instance;
-        }
-
-    protected:
         using EventResult = RE::BSEventNotifyControl;
         EventResult ProcessEvent(const RE::MenuOpenCloseEvent* evn, RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override {
             if (!evn || evn->menuName.empty())
@@ -157,12 +151,13 @@ namespace {
             }
             return EventResult::kContinue;
         };
-    };
+    private:
+    } configLoader;
 
     void kDataloadedFunction()
     {
         if (const auto Menu = RE::UI::GetSingleton(); Menu) {
-            Menu->AddEventSink<RE::MenuOpenCloseEvent>(&ConfigLoader::GetSingleton());
+            Menu->AddEventSink<RE::MenuOpenCloseEvent>(&configLoader);
         }
         ConditionManager::GetSingleton().InitialConditionMap();
         g_HitEventDispatcher.addListener(&ImpactManager::GetSingleton());
