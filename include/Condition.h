@@ -37,6 +37,8 @@ namespace Mus {
 			HasKeyword,
 			HasKeywordEditorID,
 			HasMagicEffect,
+			HasMagicEffectWithKeyword,
+			HasMagicEffectWithKeywordEditorID,
 			HasPerk,
 			HasSpell,
 			IsActorBase,
@@ -73,6 +75,7 @@ namespace Mus {
 			IsAttackWithType, //AggressorOnly
 			IsAttackHasKeyword, //AggressorOnly
 			IsAttackHasKeywordEditorID, //AggressorOnly
+			IsAttackHasMagicEffect, //AggressorOnly
 
 			IsFireAttack, //AggressorOnly
 			IsFrostAttack, //AggressorOnly
@@ -170,7 +173,8 @@ namespace Mus {
 			}
 			else if (OR.type >= ConditionType::IsFemale 
 				&& OR.type != ConditionType::IsAttackWith 
-				&& OR.type != ConditionType::IsAttackHasKeyword)
+				&& OR.type != ConditionType::IsAttackHasKeyword
+				&& OR.type != ConditionType::IsAttackHasMagicEffect)
 			{
 				std::string typestr = magic_enum::enum_name(ConditionType(OR.type)).data();
 				logger::debug("{} {:x} : {} Condition {}{}() is {}", obj->GetName(), obj->formID,
@@ -347,6 +351,24 @@ namespace Mus {
 			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			RE::EffectSetting* effect = nullptr;
+		};
+
+		class HasMagicEffectWithKeyword : public ConditionBase {
+		public:
+			HasMagicEffectWithKeyword() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			RE::BGSKeyword* keyword = nullptr;
+		};
+
+		class HasMagicEffectWithKeywordEditorID : public ConditionBase {
+		public:
+			HasMagicEffectWithKeywordEditorID() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			std::string keywordEditorID = "";
 		};
 
 		class HasPerk : public ConditionBase {
@@ -605,6 +627,16 @@ namespace Mus {
 			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
 		private:
 			std::string keywordEditorID = "";
+		};
+
+		class IsAttackHasMagicEffect : public ConditionBase {
+		public:
+			IsAttackHasMagicEffect() = default;
+			void Initial(ConditionManager::ConditionItem& item, bool IsLeft = true) override;
+			bool IsValid(std::uint8_t option) override;
+			bool Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e) override;
+		private:
+			RE::EffectSetting* effect = nullptr;
 		};
 
 		class IsFireAttack : public ConditionBase {

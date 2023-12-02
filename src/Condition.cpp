@@ -257,6 +257,12 @@ namespace Mus {
 		case ConditionType::HasMagicEffect:
 			item.conditionFunction = std::make_shared<ConditionFragment::HasMagicEffect>();
 			break;
+		case ConditionType::HasMagicEffectWithKeyword:
+			item.conditionFunction = std::make_shared<ConditionFragment::HasMagicEffectWithKeyword>();
+			break;
+		case ConditionType::HasMagicEffectWithKeywordEditorID:
+			item.conditionFunction = std::make_shared<ConditionFragment::HasMagicEffectWithKeywordEditorID>();
+			break;
 		case ConditionType::HasPerk:
 			item.conditionFunction = std::make_shared<ConditionFragment::HasPerk>();
 			break;
@@ -348,6 +354,9 @@ namespace Mus {
 			break;
 		case ConditionType::IsAttackHasKeywordEditorID:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsAttackHasKeywordEditorID>();
+			break;
+		case ConditionType::IsAttackHasMagicEffect:
+			item.conditionFunction = std::make_shared<ConditionFragment::IsAttackHasMagicEffect>();
 			break;
 		case ConditionType::IsFireAttack:
 			item.conditionFunction = std::make_shared<ConditionFragment::IsFireAttack>();
@@ -724,6 +733,64 @@ namespace Mus {
 			return magictarget && magictarget->HasMagicEffect(effect);
 		}
 
+		void HasMagicEffectWithKeyword::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			keyword = GetFormByID<RE::BGSKeyword*>(item.id, item.pluginName);
+		}
+		bool HasMagicEffectWithKeyword::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor || !keyword)
+				return false;
+			RE::MagicTarget* magictarget = actor->GetMagicTarget();
+			auto effects = magictarget->GetActiveEffectList();
+			if (!effects)
+				return false;
+			return std::ranges::any_of(effects->begin(), effects->end(), [&](RE::ActiveEffect* activeEffect)
+				{
+					if (!activeEffect->spell)
+						return false;
+					if (activeEffect->spell->HasKeyword(keyword))
+						return true;
+					return std::ranges::any_of(activeEffect->spell->effects.begin(), activeEffect->spell->effects.end(), [&](RE::Effect* effect)
+						{
+							if (!effect || !effect->baseEffect)
+								return false;
+							return effect->baseEffect->HasKeyword(keyword);
+						}
+					);
+				}
+			);
+		}
+
+		void HasMagicEffectWithKeywordEditorID::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			keywordEditorID = item.arg;
+		}
+		bool HasMagicEffectWithKeywordEditorID::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor)
+				return false;
+			RE::MagicTarget* magictarget = actor->GetMagicTarget();
+			auto effects = magictarget->GetActiveEffectList();
+			if (!effects)
+				return false;
+			return std::ranges::any_of(effects->begin(), effects->end(), [&](RE::ActiveEffect* activeEffect)
+				{
+					if (!activeEffect->spell)
+						return false;
+					if (activeEffect->spell->HasKeywordString(keywordEditorID))
+						return true;
+					return std::ranges::any_of(activeEffect->spell->effects.begin(), activeEffect->spell->effects.end(), [&](RE::Effect* effect)
+						{
+							if (!effect || !effect->baseEffect)
+								return false;
+							return effect->baseEffect->HasKeywordString(keywordEditorID);
+						}
+					);
+				}
+			);
+		}
+
 		void HasPerk::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
 		{
 			perk = GetFormByID<RE::BGSPerk*>(item.id, item.pluginName);
@@ -1080,7 +1147,12 @@ namespace Mus {
 			else if (e.spell)
 				return e.spell->HasKeyword(keyword);
 			else if (e.magicItem)
-				return e.magicItem->HasKeyword(keyword);
+				return e.magicItem->HasKeyword(keyword) ? true : 
+				std::ranges::any_of(e.magicItem->effects.begin(), e.magicItem->effects.end(), [&](RE::Effect* effect) {
+						if (!effect || !effect->baseEffect)
+							return false;
+						return effect->baseEffect->HasKeyword(keyword);
+					});
 			return false;
 		}
 
@@ -1099,7 +1171,37 @@ namespace Mus {
 			if (e.weapon)
 				return e.weapon->HasKeywordString(keywordEditorID);
 			else if (e.magicItem)
-				return e.magicItem->HasKeywordString(keywordEditorID);
+				return e.magicItem->HasKeywordString(keywordEditorID) ? true :
+				std::ranges::any_of(e.magicItem->effects.begin(), e.magicItem->effects.end(), [&](RE::Effect* effect) {
+						if (!effect || !effect->baseEffect)
+							return false;
+						return effect->baseEffect->HasKeywordString(keywordEditorID);
+					});
+			return false;
+		}
+
+		void IsAttackHasMagicEffect::Initial(ConditionManager::ConditionItem& item, bool IsLeft)
+		{
+			effect = GetFormByID<RE::EffectSetting*>(item.id, item.pluginName);
+		}
+		bool IsAttackHasMagicEffect::IsValid(std::uint8_t option)
+		{
+			return option == ConditionManager::ConditionOption::Aggressor;
+		}
+		bool IsAttackHasMagicEffect::Condition(RE::TESObjectREFR* ref, RE::Actor* actor, const HitEvent& e)
+		{
+			if (!actor || !effect)
+				return false;
+			if (e.magicItem)
+			{
+				return std::ranges::any_of(e.magicItem->effects.begin(), e.magicItem->effects.end(), [&](RE::Effect* magiceffect)
+					{
+						if (!magiceffect || !magiceffect->baseEffect)
+							return false;
+						return magiceffect->baseEffect->formID == effect->formID;
+					}
+				);
+			}
 			return false;
 		}
 
