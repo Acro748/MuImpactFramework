@@ -6,7 +6,7 @@ message("Using toolchain file ${CMAKE_TOOLCHAIN_FILE}.")
 ########################################################################################################################
 project(
         MuImpactFramework
-        VERSION 0.8.0
+        VERSION 0.9.0
         DESCRIPTION "MuImpactFramework by Acro"
         LANGUAGES CXX
 )
@@ -50,15 +50,15 @@ source_group(
         TREE ${CMAKE_CURRENT_SOURCE_DIR}
         FILES
         ${headers}
-        ${sources})
+        ${sources}
+)
 
 ########################################################################################################################
 ## Configure target DLL
 ########################################################################################################################
 find_package(CommonLibSSE REQUIRED)
-find_package(ryml CONFIG REQUIRED)
 find_package(magic_enum CONFIG REQUIRED)
-find_path(ARTICUNO_INCLUDE_DIRS "articuno/articuno.h")
+find_package(Directxtk CONFIG REQUIRED)
 
 add_commonlibsse_plugin(${PROJECT_NAME} SOURCES ${headers} ${sources})
 add_library("${PROJECT_NAME}::${PROJECT_NAME}" ALIAS "${PROJECT_NAME}")
@@ -74,30 +74,32 @@ target_compile_definitions(
     PUBLIC
         _UNICODE
         UNICODE
-        "$<$<BOOL:${USE_COMMONLIBSSE_NG}>:USE_COMMONLIBSSE_NG=1>"
 )
 
-target_include_directories(${PROJECT_NAME}
-        PRIVATE
+target_include_directories(
+    ${PROJECT_NAME}
+    PRIVATE
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src>
         $<INSTALL_INTERFACE:src>
-        ${DETOURS_INCLUDE_DIRS}
-        ${ARTICUNO_INCLUDE_DIRS}
 )
 
-target_include_directories(${PROJECT_NAME}
-        PUBLIC
+target_include_directories(
+    ${PROJECT_NAME}
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(${PROJECT_NAME}
-        PRIVATE
-        ryml::ryml
+target_link_libraries(
+    ${PROJECT_NAME}
+    PUBLIC
+        CommonLibSSE::CommonLibSSE
+    PRIVATE
         magic_enum::magic_enum
 )
 
-target_precompile_headers(${PROJECT_NAME}
+target_precompile_headers(
+    ${PROJECT_NAME}
         PRIVATE
         include/PCH.h)
 
@@ -123,10 +125,9 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/Plugin${BUILD_NAME}/")
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/Plugin${BUILD_NAME}/")
-if(${CMAKE_BUILD_TYPE} STREQUAL Release OR ${CMAKE_BUILD_TYPE} STREQUAL RelWithDebInfo)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_PDB_FILE:${PROJECT_NAME}> "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/Plugin${BUILD_NAME}/")
-endif()
+
 file(GLOB_RECURSE OUTPUT_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/**/*.dll")
 file(GLOB_RECURSE OUTPUT_PDBS "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/**/*.pdb")
 file(GLOB_RECURSE OUTPUT_SCRIPTS "${CMAKE_CURRENT_SOURCE_DIR}/contrib/Distribution/**/*.pex")

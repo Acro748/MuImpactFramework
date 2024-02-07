@@ -416,10 +416,14 @@ namespace Mus {
 		if (vfxPath.empty())
 			return VFXType::Invalid;
 
-		std::string newPath = "Meshes\\" + vfxPath;
-		RE::BSResourceNiBinaryStream binaryStream(newPath.c_str());
+		char newPath[MAX_PATH];
+		memset(newPath, 0, MAX_PATH);
+		sprintf_s(newPath, MAX_PATH, "Meshes\\%s", vfxPath.c_str());
+		RE::BSFixedString filePath(newPath);
+
+		RE::BSResourceNiBinaryStream binaryStream(filePath.data());
 		if (!binaryStream.good()) {
-			logger::error("Failed load to nif file - {}", newPath.c_str());
+			logger::error("Failed load to nif file - {}", filePath.c_str());
 			return VFXType::Invalid;
 		}
 
@@ -427,22 +431,30 @@ namespace Mus {
 		memset(niStreamMemory, 0, sizeof(RE::NiStream));
 		RE::NiStream* niStream = (RE::NiStream*)niStreamMemory;
 		NiStream_ctor(niStream);
-		niStream->Load1(&binaryStream);
+		if (!niStream->Load1(&binaryStream))
+		{
+			if (!niStream->Load3(filePath.data()))
+			{
+				logger::error("Couldn't get vfx type : {}", filePath.data());
+				NiStream_dtor(niStream);
+				return VFXType::Invalid;
+			}
+		}
 
 		for (auto& obj : niStream->topObjects)
 		{
+			if (!obj)
+				continue;
 			RE::NiAVObject* node = netimmerse_cast<RE::NiAVObject*>(obj.get());
 			if (!node)
 				continue;
 			auto controller = node->GetControllers();
-			if (controller)
+			if (!controller)
+				continue;
+			if (auto manager = controller->AsNiControllerManager(); manager)
 			{
-				auto manager = controller->AsNiControllerManager();
-				if (manager)
-				{
-					vfxType = VFXType::HitEffect;
-					break;
-				}
+				vfxType = VFXType::HitEffect;
+				break;
 			}
 		}
 

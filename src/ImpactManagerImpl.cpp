@@ -111,9 +111,9 @@ namespace Mus {
 
 		if (!material)
 		{
-			if (RE::Actor* target = skyrim_cast<RE::Actor*>(target))
+			if (RE::Actor* a_target = skyrim_cast<RE::Actor*>(target))
 			{
-				if (auto race = target->GetRace(); race && race->bloodImpactMaterial)
+				if (auto race = a_target->GetRace(); race && race->bloodImpactMaterial)
 					material = race->bloodImpactMaterial;
 				else
 					material = RE::BGSMaterialType::GetMaterialType(RE::MATERIAL_ID::kSkin);
@@ -214,22 +214,22 @@ namespace Mus {
 	void ImpactManagerImpl::LoadVFX(RE::Actor* aggressor, RE::TESObjectREFR* target, RE::NiPoint3 hitPosition, RE::NiPoint3 hitDirection, RE::NiAVObject* targetObj)
 	{
 		auto processLists = RE::ProcessLists::GetSingleton();
-		for (const auto& VFX : VFX)
+		for (const auto& VFX_ : VFX)
 		{
-			if (VFX.second.vfxPath.empty())
+			if (VFX_.second.vfxPath.empty())
 				return;
 
 			bool isCreated = false;
 
-			switch (VFX.second.vfxType) {
+			switch (VFX_.second.vfxType) {
 			case ConditionManager::Impact: {
 				if (!processLists)
 					break;
 				RE::BSTempEffectParticle* particle = nullptr;
 				if (aggressor && aggressor->parentCell)
-					particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, 0.0f, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
+					particle = RE::BSTempEffectParticle::Spawn(aggressor->parentCell, 0.0f, VFX_.second.vfxPath.c_str(), VFX_.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX_.second.option.Scale, 7, nullptr);
 				else if (target && target->parentCell)
-					particle = RE::BSTempEffectParticle::Spawn(target->parentCell, 0.0f, VFX.second.vfxPath.c_str(), VFX.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX.second.option.Scale, 7, nullptr);
+					particle = RE::BSTempEffectParticle::Spawn(target->parentCell, 0.0f, VFX_.second.vfxPath.c_str(), VFX_.second.option.RandomDirection ? GetRandomDirection() : hitDirection, hitPosition, VFX_.second.option.Scale, 7, nullptr);
 				if (!particle)
 					break;
 				if (Config::GetSingleton().GetPersistent())
@@ -251,8 +251,8 @@ namespace Mus {
 				auto art = GetArtObjectTempForm();
 				if (!art)
 					break;
-				art->SetModel(VFX.second.vfxPath.c_str());
-				auto hitEffect = target->InstantiateHitArt(art, VFX.second.option.Duration, nullptr, false, false);
+				art->SetModel(VFX_.second.vfxPath.c_str());
+				auto hitEffect = target->ApplyArtObject(art, VFX_.second.option.Duration, nullptr, false, false);
 				if (!hitEffect)
 					break;
 				isCreated = true;
@@ -261,9 +261,9 @@ namespace Mus {
 			}
 
 			if (isCreated)
-				logger::trace("create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX.second.vfxType)).data(), VFX.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
+				logger::trace("create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX_.second.vfxType)).data(), VFX_.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
 			else
-				logger::error("couldn't create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX.second.vfxType)).data(), VFX.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
+				logger::error("couldn't create VFX({}) {} on ({}, {}, {}) for {:x} {}", magic_enum::enum_name(ConditionManager::VFXType(VFX_.second.vfxType)).data(), VFX_.second.vfxPath, hitPosition.x, hitPosition.y, hitPosition.z, target ? target->formID : 0, target ? target->GetName() : "");
 		}
 	}
 
@@ -319,7 +319,7 @@ namespace Mus {
 		{
 			if (!effectShader.second.item)
 				continue;
-			auto hitShader = target->InstantiateHitShader(effectShader.second.item, effectShader.second.option.Duration, nullptr, false, false);
+			auto hitShader = target->ApplyEffectShader(effectShader.second.item, effectShader.second.option.Duration, nullptr, false, false);
 			if (hitShader)
 				logger::trace("create EffectShader for {:x} {}", target->formID, target->GetName());
 			else
@@ -336,8 +336,8 @@ namespace Mus {
 		{
 			if (artObject.second.item)
 				continue;;
-			auto ArtObject = target->InstantiateHitArt(artObject.second.item, artObject.second.option.Duration, nullptr, false, false);
-			if (ArtObject)
+			auto artObject_ = target->ApplyArtObject(artObject.second.item, artObject.second.option.Duration, nullptr, false, false);
+			if (artObject_)
 				logger::trace("create EffectShader for {:x} {}", target->formID, target->GetName());
 			else
 				logger::error("couldn't create EffectShader for {:x} {}", target->formID, target->GetName());

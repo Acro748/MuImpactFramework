@@ -1,24 +1,23 @@
 {
-  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
-  "name": "muimpactframework",
-  "version-string": "0.7.4",
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/main/scripts/vcpkg.schema.json",
+  "name": "commonlibsse-plugin",
+  "version-string": "1.0.0",
   "port-version": 0,
-  "description": "MuImpactFramework by Acro",
-  "homepage": "https://github.com/Acro748/MuImpactFramework",
+  "description": "SKSE plugin based on CommonLibSSE, for unified AE/SE/VR deployment.",
+  "homepage": "https://www.skyrimng.com",
   "license": "Apache-2.0",
   "features": {
     "plugin": {
       "description": "Build the SKSE plugin.",
       "dependencies": [
-        "articuno",
         "commonlibsse-ng",
         "magic-enum",
         "jsoncpp",
-        "xbyak"
+        "xbyak",
+        "directxtk"
       ]
     }
   },
-  "default-features": [
-    "plugin"
-  ]
+  "default-features": [ "plugin" ],
+  "builtin-baseline": "53bef8994c541b6561884a8395ea35715ece75db"
 }

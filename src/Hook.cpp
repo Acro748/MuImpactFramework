@@ -43,24 +43,27 @@ namespace Mus {
 
 			if (targetValue)
 			{
-				effect->baseEffect->ForEachKeyword([&](const RE::BGSKeyword& a_keyword) {
-					if (IsContainString(a_keyword.formEditorID.c_str(), "fire"))
+				effect->baseEffect->ForEachKeyword([&](const RE::BGSKeyword* a_keyword) {
+					if (a_keyword)
 					{
-						damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistFire) * 0.01f);
-						e.elementalType |= HitEvent::ElementalType::Fire;
-						return RE::BSContainer::ForEachResult::kStop;
-					}
-					else if (IsContainString(a_keyword.formEditorID.c_str(), "frost"))
-					{
-						damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistFrost) * 0.01f);
-						e.elementalType |= HitEvent::ElementalType::Frost;
-						return RE::BSContainer::ForEachResult::kStop;
-					}
-					else if (IsContainString(a_keyword.formEditorID.c_str(), "shock"))
-					{
-						damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistShock) * 0.01f);
-						e.elementalType |= HitEvent::ElementalType::Shock;
-						return RE::BSContainer::ForEachResult::kStop;
+						if (IsContainString(a_keyword->formEditorID.c_str(), "fire"))
+						{
+							damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistFire) * 0.01f);
+							e.elementalType |= HitEvent::ElementalType::Fire;
+							return RE::BSContainer::ForEachResult::kStop;
+						}
+						else if (IsContainString(a_keyword->formEditorID.c_str(), "frost"))
+						{
+							damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistFrost) * 0.01f);
+							e.elementalType |= HitEvent::ElementalType::Frost;
+							return RE::BSContainer::ForEachResult::kStop;
+						}
+						else if (IsContainString(a_keyword->formEditorID.c_str(), "shock"))
+						{
+							damage *= 1.0f - (targetValue->GetActorValue(RE::ActorValue::kResistShock) * 0.01f);
+							e.elementalType |= HitEvent::ElementalType::Shock;
+							return RE::BSContainer::ForEachResult::kStop;
+						}
 					}
 					return RE::BSContainer::ForEachResult::kContinue;
 				});

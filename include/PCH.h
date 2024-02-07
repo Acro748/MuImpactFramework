@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <any>
 #include <array>
-#include <articuno/articuno.h>
 #include <atomic>
 #include <barrier>
 #include <bit>
@@ -130,8 +129,8 @@ namespace util {
     using SKSE::stl::report_and_fail;
 }
 
-#include "Utility.hpp"
 #include "nifUtil.h"
+#include "Utility.hpp"
 #include "Hook.h"
 #include "Condition.h"
 #include "Config.h"

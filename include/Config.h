@@ -224,6 +224,13 @@ namespace Mus {
         static inline std::vector<std::filesystem::path> GetAllFiles(std::string folder)
         {
             std::vector<std::filesystem::path> files;
+
+            auto path = std::filesystem::path(folder);
+            if (!std::filesystem::exists(path))
+                return files;
+            if (!std::filesystem::is_directory(path))
+                return files;
+
             for (const auto& file : std::filesystem::directory_iterator(folder))
             {
                 files.emplace_back(file.path());
